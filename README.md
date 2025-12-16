@@ -1,6 +1,6 @@
 # tdd-hexagon-clean
 
-Projeto de estudo com arquitetura hexagonal, TDD e CQRS (Command/Query separados, leitura via SQL).
+Projeto de estudo com arquitetura hexagonal, TDD e CQRS (Command/Query separados, leitura via SQL). Domínio usa Value Objects para identidade (`OrderId`, `CustomerId`) e dinheiro (`Money`).
 
 ## Endpoints
 

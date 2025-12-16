@@ -1,6 +1,7 @@
 package com.mvbr.estudo.tdd.infrastructure.adapter.out.integration;
 
 import com.mvbr.estudo.tdd.application.port.out.StockGateway;
+import com.mvbr.estudo.tdd.domain.model.OrderId;
 import com.mvbr.estudo.tdd.domain.model.OrderItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,17 +20,17 @@ public class InMemoryStockAdapter implements StockGateway {
     private final Map<String, List<OrderItem>> reservedItems = new ConcurrentHashMap<>();
 
     @Override
-    public void reserve(String orderId, List<OrderItem> items) {
-        reservedOrders.add(orderId);
-        reservedItems.put(orderId, items);
-        log.info("Estoque reservado (in-memory) para pedido {} com {} itens", orderId, items.size());
+    public void reserve(OrderId orderId, List<OrderItem> items) {
+        reservedOrders.add(orderId.value());
+        reservedItems.put(orderId.value(), items);
+        log.info("Estoque reservado (in-memory) para pedido {} com {} itens", orderId.value(), items.size());
     }
 
-    public boolean isReserved(String orderId) {
-        return reservedOrders.contains(orderId);
+    public boolean isReserved(String orderIdValue) {
+        return reservedOrders.contains(orderIdValue);
     }
 
-    public List<OrderItem> getReservedItems(String orderId) {
-        return reservedItems.get(orderId);
+    public List<OrderItem> getReservedItems(String orderIdValue) {
+        return reservedItems.get(orderIdValue);
     }
 }

@@ -42,11 +42,11 @@ public class OrderWebMapper {
                 .toList();
 
         return new OrderResponse(
-                order.getOrderId(),
-                order.getCustomerId(),
+                order.getOrderId().value(),
+                order.getCustomerId().value(),
                 order.getStatus(),
-                order.getDiscount(),
-                order.getTotal(),
+                order.getDiscount().toBigDecimal(),
+                order.getTotal().toBigDecimal(),
                 items
         );
     }
@@ -106,8 +106,8 @@ public class OrderWebMapper {
         return new OrderItemResponse(
                 item.getProductId(),
                 item.getQuantity(),
-                item.getPrice(),
-                item.getSubTotal()
+                item.getPrice().toBigDecimal(),
+                item.getSubTotal().toBigDecimal()
         );
     }
 

@@ -1,0 +1,31 @@
+
+
+
+ Endpoints atualizados:
+
+  - Commands:
+      - POST /orders
+      - POST /orders/place
+      - POST /orders/{orderId}/confirm
+      - POST /orders/{orderId}/cancel
+  - Queries:
+      - GET /orders — lista resumida (sem itens); params: status, customerId, page (0), size (20)
+      - GET /orders/details — lista detalhada (com itens); params: status, customerId, page (0), size (20)
+      - GET /orders/{orderId}
+      - GET /orders/{orderId}/items/{itemId}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

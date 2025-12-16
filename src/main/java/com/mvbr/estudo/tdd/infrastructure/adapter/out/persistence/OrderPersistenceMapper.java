@@ -1,6 +1,9 @@
 package com.mvbr.estudo.tdd.infrastructure.adapter.out.persistence;
 
+import com.mvbr.estudo.tdd.domain.model.CustomerId;
+import com.mvbr.estudo.tdd.domain.model.Money;
 import com.mvbr.estudo.tdd.domain.model.Order;
+import com.mvbr.estudo.tdd.domain.model.OrderId;
 import com.mvbr.estudo.tdd.domain.model.OrderItem;
 import com.mvbr.estudo.tdd.domain.model.OrderStatus;
 
@@ -19,11 +22,11 @@ public class OrderPersistenceMapper {
 
         JpaOrderEntity entity = new JpaOrderEntity();
 
-        entity.setOrderId(order.getOrderId());
-        entity.setCustomerId(order.getCustomerId());
+        entity.setOrderId(order.getOrderId().value());
+        entity.setCustomerId(order.getCustomerId().value());
         entity.setStatus(order.getStatus());
-        entity.setDiscount(order.getDiscount());
-        entity.setTotal(order.getTotal());
+        entity.setDiscount(order.getDiscount().toBigDecimal());
+        entity.setTotal(order.getTotal().toBigDecimal());
 
         List<JpaOrderItemEntity> items = order.getItems()
                 .stream()
@@ -42,7 +45,7 @@ public class OrderPersistenceMapper {
 
         entity.setProductId(item.getProductId());
         entity.setQuantity(item.getQuantity());
-        entity.setPrice(item.getPrice());
+        entity.setPrice(item.getPrice().toBigDecimal());
 
         return entity;
     }
@@ -53,8 +56,8 @@ public class OrderPersistenceMapper {
     public Order toDomain(JpaOrderEntity entity) {
 
         Order order = new Order(
-                entity.getOrderId(),
-                entity.getCustomerId()
+                new OrderId(entity.getOrderId()),
+                new CustomerId(entity.getCustomerId())
         );
 
         // Reconstrói itens via comportamento do domínio
@@ -62,13 +65,13 @@ public class OrderPersistenceMapper {
                 order.addItem(
                         item.getProductId(),
                         item.getQuantity(),
-                        item.getPrice()
+                        new Money(item.getPrice())
                 )
         );
 
         // Reconstrói desconto (ordem importa!)
         if (entity.getDiscount() != null) {
-            order.applyDiscount(entity.getDiscount());
+            order.applyDiscount(new Money(entity.getDiscount()));
         }
 
         // Reconstrói status (transições controladas)

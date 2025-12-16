@@ -3,7 +3,10 @@ package com.mvbr.estudo.tdd.application.usecase;
 import com.mvbr.estudo.tdd.application.port.in.CreateOrderCommand;
 import com.mvbr.estudo.tdd.application.port.out.OrderRepository;
 import com.mvbr.estudo.tdd.domain.event.OrderCreatedEvent;
+import com.mvbr.estudo.tdd.domain.model.CustomerId;
+import com.mvbr.estudo.tdd.domain.model.Money;
 import com.mvbr.estudo.tdd.domain.model.Order;
+import com.mvbr.estudo.tdd.domain.model.OrderId;
 
 import java.util.UUID;
 
@@ -15,20 +18,25 @@ public class CreateOrderUseCase {
         this.orderRepository = orderRepository;
     }
 
-    public String execute(CreateOrderCommand orderCommand) {
+    public OrderId execute(CreateOrderCommand orderCommand) {
 
         // identidade e decisao do usecase...
-        String orderId = UUID.randomUUID().toString();
+        OrderId orderId = new OrderId(UUID.randomUUID().toString());
+        CustomerId customerId = new CustomerId(orderCommand.customerId());
 
         // criacao do aggregate root...
-        Order order = new Order(orderId, orderCommand.customerId());
+        Order order = new Order(orderId, customerId);
 
         // orquestra comportamento do dominio...
-        orderCommand.items().forEach(item -> order.addItem(item.productId(), item.quantity(), item.price()));
+        orderCommand.items().forEach(item -> order.addItem(
+                item.productId(),
+                item.quantity(),
+                new Money(item.price())
+        ));
 
         // regras opcionais delegada ao dominio...
         if (orderCommand.discount() != null) {
-            order.applyDiscount(orderCommand.discount());
+            order.applyDiscount(new Money(orderCommand.discount()));
         }
 
         // persistencia...
@@ -37,7 +45,7 @@ public class CreateOrderUseCase {
         // evento de dominio (placeholder para futura publicação)
         OrderCreatedEvent event = new OrderCreatedEvent(
                 orderId,
-                orderCommand.customerId(),
+                customerId,
                 orderCommand.items().stream().map(item -> item.productId()).toList()
         );
         // TODO: publicar evento quando EventPublisher estiver implementado

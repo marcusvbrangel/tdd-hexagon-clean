@@ -1,8 +1,9 @@
 package com.mvbr.estudo.tdd.application.port.out;
 
-import java.math.BigDecimal;
+import com.mvbr.estudo.tdd.domain.model.Money;
+import com.mvbr.estudo.tdd.domain.model.OrderId;
 
 public interface PaymentGateway {
 
-    void startPayment(String orderId, BigDecimal total);
+    void startPayment(OrderId orderId, Money total);
 }

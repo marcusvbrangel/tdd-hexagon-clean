@@ -8,6 +8,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @DisplayName("Order - Domain Model Tests")
 class OrderTest {
@@ -25,12 +26,12 @@ class OrderTest {
         String customerId = "cust-456";
 
         // When
-        Order order = new Order(orderId, customerId);
+        Order order = new Order(new OrderId(orderId), new CustomerId(customerId));
 
         // Then
         assertThat(order).isNotNull();
-        assertThat(order.getOrderId()).isEqualTo(orderId);
-        assertThat(order.getCustomerId()).isEqualTo(customerId);
+        assertThat(order.getOrderId()).isEqualTo(new OrderId(orderId));
+        assertThat(order.getCustomerId()).isEqualTo(new CustomerId(customerId));
 
     }
 
@@ -39,13 +40,10 @@ class OrderTest {
     void shouldThrowExceptionWhenOrderIdIsNull() {
 
         // Given
-        String orderId = null;
-        String customerId = "cust-456";
-
         // When/Then
-        assertThatThrownBy(() -> new Order(orderId, customerId))
+        assertThatThrownBy(() -> new Order(null, new CustomerId("cust-456")))
                 .isExactlyInstanceOf(InvalidOrderException.class)
-                .hasMessage("Order ID cannot be null or blank");
+                .hasMessage("Order ID cannot be blank");
 
     }
 
@@ -54,9 +52,9 @@ class OrderTest {
     void shouldThrowExceptionWhenOrderIdIsBlank() {
 
         // When/Then
-        assertThatThrownBy(() -> new Order("  ", "cust-456"))
+        assertThatThrownBy(() -> new Order(new OrderId("  "), new CustomerId("cust-456")))
                 .isExactlyInstanceOf(InvalidOrderException.class)
-                .hasMessage("Order ID cannot be null or blank");
+                .hasMessage("Order ID cannot be blank");
 
     }
 
@@ -65,9 +63,9 @@ class OrderTest {
     void shouldThrowExceptionWhenCustomerIdIsNull() {
 
         // When/Then
-        assertThatThrownBy(() -> new Order("ord-123", null))
+        assertThatThrownBy(() -> new Order(new OrderId("ord-123"), null))
                 .isExactlyInstanceOf(InvalidOrderException.class)
-                .hasMessage("Customer ID cannot be null or blank");
+                .hasMessage("Customer ID cannot be blank");
 
     }
 
@@ -76,9 +74,9 @@ class OrderTest {
     void shouldThrowExceptionWhenCustomerIdIsBlank() {
 
         // When/Then
-        assertThatThrownBy(() -> new Order("ord-123", "   "))
+        assertThatThrownBy(() -> new Order(new OrderId("ord-123"), new CustomerId("   ")))
                 .isExactlyInstanceOf(InvalidOrderException.class)
-                .hasMessage("Customer ID cannot be null or blank");
+                .hasMessage("Customer ID cannot be blank");
 
     }
 
@@ -87,7 +85,7 @@ class OrderTest {
     void shouldInitializeOrderWithDraftStatus() {
 
         // Given/When
-        Order order = new Order("ord-124", "cust-456");
+        Order order = new Order(new OrderId(UUID.randomUUID().toString()), new CustomerId("cust-456"));
 
         // Then
         assertThat(order.getStatus()).isEqualTo(OrderStatus.DRAFT);
@@ -99,10 +97,10 @@ class OrderTest {
     void shouldAddItemToOrder() {
 
         // Given
-        Order order = new Order("ord-123", "cust-456");
+        Order order = new Order(new OrderId("ord-123"), new CustomerId("cust-456"));
         String productId = "prod-789";
         int quantity = 2;
-        BigDecimal price = new BigDecimal("50.00");
+        Money price = new Money(new BigDecimal("50.00"));
 
         // When
         order.addItem(productId, quantity, price);

@@ -5,6 +5,7 @@ import com.mvbr.estudo.tdd.application.usecase.CreateOrderUseCase;
 import com.mvbr.estudo.tdd.application.usecase.ReserveStockUseCase;
 import com.mvbr.estudo.tdd.application.usecase.StartPaymentUseCase;
 import com.mvbr.estudo.tdd.application.port.in.PlaceOrderCommand;
+import com.mvbr.estudo.tdd.domain.model.OrderId;
 
 public class PlaceOrderService {
 
@@ -23,12 +24,12 @@ public class PlaceOrderService {
     @Transactional
     public String placeOrder(PlaceOrderCommand command) {
 
-        String orderId = createOrder.execute(command.toCreateOrder());
+        OrderId orderId = createOrder.execute(command.toCreateOrder());
 
         reserveStock.execute(orderId);
 
         startPayment.execute(orderId);
 
-        return orderId;
+        return orderId.value();
     }
 }

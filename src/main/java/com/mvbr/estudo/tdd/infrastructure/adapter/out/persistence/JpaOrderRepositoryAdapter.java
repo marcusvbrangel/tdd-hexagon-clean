@@ -1,6 +1,7 @@
 package com.mvbr.estudo.tdd.infrastructure.adapter.out.persistence;
 
 import com.mvbr.estudo.tdd.application.port.out.OrderRepository;
+import com.mvbr.estudo.tdd.domain.model.OrderId;
 import com.mvbr.estudo.tdd.domain.model.Order;
 import org.springframework.stereotype.Repository;
 
@@ -24,8 +25,8 @@ public class JpaOrderRepositoryAdapter implements OrderRepository {
     }
 
     @Override
-    public Optional<Order> findById(String orderId) {
-        return repository.findById(orderId)
+    public Optional<Order> findById(OrderId orderId) {
+        return repository.findById(orderId.value())
                 .map(mapper::toDomain);
     }
 

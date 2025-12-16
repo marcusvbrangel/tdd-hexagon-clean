@@ -1,15 +1,19 @@
 package com.mvbr.estudo.tdd.domain.model;
 
-import java.math.BigDecimal;
+import com.mvbr.estudo.tdd.domain.exception.InvalidOrderException;
+
 import java.util.Objects;
 
 public class OrderItem {
 
     private final String productId;
     private final int quantity;
-    private final BigDecimal price;
+    private final Money price;
 
-    public OrderItem(String productId, int quantity, BigDecimal price) {
+    public OrderItem(String productId, int quantity, Money price) {
+        if (productId == null || productId.isBlank()) {
+            throw new InvalidOrderException("Product ID cannot be blank");
+        }
         this.productId = productId;
         this.quantity = quantity;
         this.price = price;
@@ -23,12 +27,12 @@ public class OrderItem {
         return quantity;
     }
 
-    public BigDecimal getPrice() {
+    public Money getPrice() {
         return price;
     }
 
-    public BigDecimal getSubTotal() {
-        return price.multiply(BigDecimal.valueOf(quantity));
+    public Money getSubTotal() {
+        return price.multiply(quantity);
     }
 
     @Override
@@ -45,9 +49,6 @@ public class OrderItem {
         return Objects.hash(productId, quantity, price);
     }
 }
-
-
-
 
 
 

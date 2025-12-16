@@ -2,35 +2,35 @@ package com.mvbr.estudo.tdd.domain.model;
 
 import com.mvbr.estudo.tdd.domain.exception.InvalidOrderException;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
 public class Order {
 
-    private final String orderId;
-    private final String customerId;
+    private final OrderId orderId;
+    private final CustomerId customerId;
     private OrderStatus status;
     private final List<OrderItem> items;
-    private BigDecimal total;
+    private Money total;
+    private Money discount;
 
-    private BigDecimal discount;
-
-    public Order(String orderId, String customerId) {
-
-        validateOrderId(orderId);
-        validateCustomerId(customerId);
-
+    public Order(OrderId orderId, CustomerId customerId) {
+        if (orderId == null) {
+            throw new InvalidOrderException("Order ID cannot be blank");
+        }
+        if (customerId == null) {
+            throw new InvalidOrderException("Customer ID cannot be blank");
+        }
         this.orderId = orderId;
         this.customerId = customerId;
         this.status = OrderStatus.DRAFT;
         this.items = new ArrayList<>();
-        this.discount = BigDecimal.ZERO;
-        this.total = BigDecimal.ZERO;
+        this.discount = Money.zero();
+        this.total = Money.zero();
         
     }
 
-    public void addItem(String productId, int quantity, BigDecimal price) {
+    public void addItem(String productId, int quantity, Money price) {
         if (status != OrderStatus.DRAFT) {
             throw new InvalidOrderException("Can only add items to DRAFT orders");
         }
@@ -39,7 +39,7 @@ public class Order {
             throw new InvalidOrderException("Quantity must be greater than zero");
         }
 
-        if (price == null || price.compareTo(BigDecimal.ZERO) <= 0) {
+        if (price == null || price.isZeroOrNegative()) {
             throw new InvalidOrderException("Price must be greater than zero");
         }
 
@@ -49,15 +49,15 @@ public class Order {
     }
 
     // ✅ Método para calcular subtotal (sem desconto)
-    private BigDecimal calculateSubtotal() {
+    private Money calculateSubtotal() {
         return items.stream()
                 .map(OrderItem::getSubTotal)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .reduce(Money.zero(), Money::add);
     }
 
     // ✅ Modificar para incluir desconto
     private void recalculateTotal() {
-        BigDecimal subtotal = calculateSubtotal();
+        Money subtotal = calculateSubtotal();
         this.total = subtotal.subtract(this.discount);
     }
 
@@ -91,17 +91,14 @@ public class Order {
         this.status = OrderStatus.COMPLETED;
     }
 
-    public void applyDiscount(BigDecimal discount) {
+    public void applyDiscount(Money discount) {
         // Validar desconto negativo
-        if (discount.compareTo(BigDecimal.ZERO) < 0) {
+        if (discount.isNegative()) {
             throw new InvalidOrderException("Discount cannot be negative");
         }
 
-        // Calcular subtotal
-        BigDecimal subtotal = calculateSubtotal();
-
-        // Validar desconto maior que subtotal
-        if (discount.compareTo(subtotal) > 0) {
+        Money subtotal = calculateSubtotal();
+        if (discount.isGreaterThan(subtotal)) {
             throw new InvalidOrderException("Discount cannot be greater than subtotal");
         }
 
@@ -109,23 +106,11 @@ public class Order {
         recalculateTotal();
     }
 
-    private static void validateCustomerId(String customerId) {
-        if (customerId == null || customerId.isBlank()) {
-            throw new InvalidOrderException("Customer ID cannot be null or blank");
-        }
-    }
-
-    private static void validateOrderId(String orderId) {
-        if (orderId == null || orderId.isBlank()) {
-            throw new InvalidOrderException("Order ID cannot be null or blank");
-        }
-    }
-
-    public String getOrderId() {
+    public OrderId getOrderId() {
         return orderId;
     }
 
-    public String getCustomerId() {
+    public CustomerId getCustomerId() {
         return customerId;
     }
 
@@ -137,13 +122,12 @@ public class Order {
         return List.copyOf(items);
     }
 
-    public BigDecimal getDiscount() {
+    public Money getDiscount() {
         return discount;
     }
 
-    public BigDecimal getTotal() {
+    public Money getTotal() {
         return total;
     }
 
 }
-
