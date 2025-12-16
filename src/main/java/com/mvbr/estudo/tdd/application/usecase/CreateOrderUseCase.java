@@ -47,4 +47,28 @@ public class CreateOrderUseCase {
 
     }
 
+    /*
+    =================================================================================================
+    Papel correto do CreateOrderUseCase no seu cenário
+
+Com o seu Order atual, o UseCase deve:
+
+✔️ Receber a intenção (CreateOrderCommand)
+
+✔️ Criar o Aggregate Root (Order)
+
+✔️ Delegar validações e invariantes ao domínio
+
+✔️ Orquestrar a adição de itens
+
+✔️ Persistir via port (OrderRepository)
+
+❌ Não validar regra de negócio
+
+❌ Não conhecer HTTP, DTO, JPA, Kafka
+
+👉 Ele é orquestrador, não “executor de regra”.
+    =================================================================================================
+     */
+
 }
