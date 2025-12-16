@@ -1,18 +1,21 @@
 package com.mvbr.estudo.tdd.config;
 
 import com.mvbr.estudo.tdd.application.port.out.OrderRepository;
-import com.mvbr.estudo.tdd.application.usecase.CreateOrderUseCase;
-import com.mvbr.estudo.tdd.application.usecase.GetOrderUseCase;
-import com.mvbr.estudo.tdd.application.usecase.ListOrdersUseCase;
-import com.mvbr.estudo.tdd.application.service.PlaceOrderService;
-import com.mvbr.estudo.tdd.application.usecase.ReserveStockUseCase;
-import com.mvbr.estudo.tdd.application.usecase.StartPaymentUseCase;
-import com.mvbr.estudo.tdd.application.usecase.ConfirmOrderUseCase;
-import com.mvbr.estudo.tdd.application.usecase.CancelOrderUseCase;
-import com.mvbr.estudo.tdd.application.usecase.ReserveStockService;
-import com.mvbr.estudo.tdd.application.usecase.StartPaymentService;
-import com.mvbr.estudo.tdd.application.port.out.StockGateway;
 import com.mvbr.estudo.tdd.application.port.out.PaymentGateway;
+import com.mvbr.estudo.tdd.application.port.out.StockGateway;
+import com.mvbr.estudo.tdd.application.query.ListOrderSummariesQuery;
+import com.mvbr.estudo.tdd.application.query.GetOrderItemQuery;
+import com.mvbr.estudo.tdd.application.query.GetOrderQuery;
+import com.mvbr.estudo.tdd.application.query.ListOrdersQuery;
+import com.mvbr.estudo.tdd.application.query.OrderReadRepository;
+import com.mvbr.estudo.tdd.application.service.PlaceOrderService;
+import com.mvbr.estudo.tdd.application.usecase.CancelOrderUseCase;
+import com.mvbr.estudo.tdd.application.usecase.ConfirmOrderUseCase;
+import com.mvbr.estudo.tdd.application.usecase.CreateOrderUseCase;
+import com.mvbr.estudo.tdd.application.usecase.ReserveStockService;
+import com.mvbr.estudo.tdd.application.usecase.ReserveStockUseCase;
+import com.mvbr.estudo.tdd.application.usecase.StartPaymentService;
+import com.mvbr.estudo.tdd.application.usecase.StartPaymentUseCase;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -25,13 +28,23 @@ public class UseCaseConfig {
     }
 
     @Bean
-    public ListOrdersUseCase listOrdersUseCase(OrderRepository orderRepository) {
-        return new ListOrdersUseCase(orderRepository);
+    public ListOrdersQuery listOrdersQuery(OrderReadRepository orderReadRepository) {
+        return new ListOrdersQuery(orderReadRepository);
     }
 
     @Bean
-    public GetOrderUseCase getOrderUseCase(OrderRepository orderRepository) {
-        return new GetOrderUseCase(orderRepository);
+    public GetOrderQuery getOrderQuery(OrderReadRepository orderReadRepository) {
+        return new GetOrderQuery(orderReadRepository);
+    }
+
+    @Bean
+    public GetOrderItemQuery getOrderItemQuery(OrderReadRepository orderReadRepository) {
+        return new GetOrderItemQuery(orderReadRepository);
+    }
+
+    @Bean
+    public ListOrderSummariesQuery listOrderSummariesQuery(OrderReadRepository orderReadRepository) {
+        return new ListOrderSummariesQuery(orderReadRepository);
     }
 
     @Bean
