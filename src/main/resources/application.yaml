@@ -9,8 +9,27 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
     open-in-view: false
+h2:
+  console:
+    enabled: true
+    path: /h2-console
+    settings:
+      web-allow-others: true
+
+#
+# Para usar o cliente web do H2 com esse projeto:
+#  Abra no navegador: http://localhost:8090/h2-console.
+#                          - JDBC URL: jdbc:h2:mem:tdd;DB_CLOSE_DELAY=-1
+#                          - User: sa
+#                          - Password: (deixe em branco, conforme config)
+#
+#  Isso abre o cliente web embutido do H2.

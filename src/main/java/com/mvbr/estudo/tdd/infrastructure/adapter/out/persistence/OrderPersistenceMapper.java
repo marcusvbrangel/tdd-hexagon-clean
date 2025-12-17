@@ -55,33 +55,25 @@ public class OrderPersistenceMapper {
     // ============================
     public Order toDomain(JpaOrderEntity entity) {
 
-        Order order = new Order(
-                new OrderId(entity.getOrderId()),
-                new CustomerId(entity.getCustomerId())
-        );
+        Order.Builder builder = Order.builder()
+                .withOrderId(new OrderId(entity.getOrderId()))
+                .withCustomerId(new CustomerId(entity.getCustomerId()));
 
-        // Reconstrói itens via comportamento do domínio
-        entity.getItems().forEach(item ->
-                order.addItem(
-                        item.getProductId(),
-                        item.getQuantity(),
-                        new Money(item.getPrice())
-                )
-        );
+        entity.getItems().forEach(item -> builder.addItem(
+                item.getProductId(),
+                item.getQuantity(),
+                new Money(item.getPrice())
+        ));
 
-        // Reconstrói desconto (ordem importa!)
+        Order order = builder.build();
         if (entity.getDiscount() != null) {
             order.applyDiscount(new Money(entity.getDiscount()));
         }
-
-        // Reconstrói status (transições controladas)
         restoreStatus(order, entity.getStatus());
-
         return order;
     }
 
     private void restoreStatus(Order order, OrderStatus status) {
-
         switch (status) {
             case CONFIRMED -> order.confirm();
             case COMPLETED -> {

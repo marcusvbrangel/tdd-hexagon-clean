@@ -26,7 +26,10 @@ class OrderTest {
         String customerId = "cust-456";
 
         // When
-        Order order = new Order(new OrderId(orderId), new CustomerId(customerId));
+        Order order = Order.builder()
+                .withOrderId(new OrderId(orderId))
+                .withCustomerId(new CustomerId(customerId))
+                .build();
 
         // Then
         assertThat(order).isNotNull();
@@ -41,7 +44,10 @@ class OrderTest {
 
         // Given
         // When/Then
-        assertThatThrownBy(() -> new Order(null, new CustomerId("cust-456")))
+        assertThatThrownBy(() -> Order.builder()
+                .withOrderId(null)
+                .withCustomerId(new CustomerId("cust-456"))
+                .build())
                 .isExactlyInstanceOf(InvalidOrderException.class)
                 .hasMessage("Order ID cannot be blank");
 
@@ -52,7 +58,10 @@ class OrderTest {
     void shouldThrowExceptionWhenOrderIdIsBlank() {
 
         // When/Then
-        assertThatThrownBy(() -> new Order(new OrderId("  "), new CustomerId("cust-456")))
+        assertThatThrownBy(() -> Order.builder()
+                .withOrderId(new OrderId("  "))
+                .withCustomerId(new CustomerId("cust-456"))
+                .build())
                 .isExactlyInstanceOf(InvalidOrderException.class)
                 .hasMessage("Order ID cannot be blank");
 
@@ -63,7 +72,10 @@ class OrderTest {
     void shouldThrowExceptionWhenCustomerIdIsNull() {
 
         // When/Then
-        assertThatThrownBy(() -> new Order(new OrderId("ord-123"), null))
+        assertThatThrownBy(() -> Order.builder()
+                .withOrderId(new OrderId("ord-123"))
+                .withCustomerId(null)
+                .build())
                 .isExactlyInstanceOf(InvalidOrderException.class)
                 .hasMessage("Customer ID cannot be blank");
 
@@ -74,7 +86,10 @@ class OrderTest {
     void shouldThrowExceptionWhenCustomerIdIsBlank() {
 
         // When/Then
-        assertThatThrownBy(() -> new Order(new OrderId("ord-123"), new CustomerId("   ")))
+        assertThatThrownBy(() -> Order.builder()
+                .withOrderId(new OrderId("ord-123"))
+                .withCustomerId(new CustomerId("   "))
+                .build())
                 .isExactlyInstanceOf(InvalidOrderException.class)
                 .hasMessage("Customer ID cannot be blank");
 
@@ -85,7 +100,10 @@ class OrderTest {
     void shouldInitializeOrderWithDraftStatus() {
 
         // Given/When
-        Order order = new Order(new OrderId(UUID.randomUUID().toString()), new CustomerId("cust-456"));
+        Order order = Order.builder()
+                .withOrderId(new OrderId(UUID.randomUUID().toString()))
+                .withCustomerId(new CustomerId("cust-456"))
+                .build();
 
         // Then
         assertThat(order.getStatus()).isEqualTo(OrderStatus.DRAFT);
@@ -97,7 +115,10 @@ class OrderTest {
     void shouldAddItemToOrder() {
 
         // Given
-        Order order = new Order(new OrderId("ord-123"), new CustomerId("cust-456"));
+        Order order = Order.builder()
+                .withOrderId(new OrderId("ord-123"))
+                .withCustomerId(new CustomerId("cust-456"))
+                .build();
         String productId = "prod-789";
         int quantity = 2;
         Money price = new Money(new BigDecimal("50.00"));
@@ -113,6 +134,26 @@ class OrderTest {
         assertThat(item.getQuantity()).isEqualTo(quantity);
         assertThat(item.getPrice()).isEqualTo(price);
 
+    }
+
+    @Test
+    @DisplayName("Should restore order with items and discount")
+    void shouldRestoreOrderWithItemsAndDiscount() {
+
+        // When
+        Order order = Order.builder()
+                .withOrderId(new OrderId("ord-restore"))
+                .withCustomerId(new CustomerId("cust-001"))
+                .addItem("prod-1", 2, new Money(new BigDecimal("10.00")))
+                .addItem("prod-2", 1, new Money(new BigDecimal("20.00")))
+                .build();
+        order.applyDiscount(new Money(new BigDecimal("5.00")));
+        order.confirm();
+
+        // Then
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+        assertThat(order.getItems()).hasSize(2);
+        assertThat(order.getTotal()).isEqualTo(new Money(new BigDecimal("35.00")));
     }
 
     // PASSO 8: 🔴 Validar Quantidade do Item

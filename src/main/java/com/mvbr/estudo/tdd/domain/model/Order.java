@@ -4,6 +4,7 @@ import com.mvbr.estudo.tdd.domain.exception.InvalidOrderException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class Order {
 
@@ -14,20 +15,24 @@ public class Order {
     private Money total;
     private Money discount;
 
-    public Order(OrderId orderId, CustomerId customerId) {
-        if (orderId == null) {
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    private Order(Builder builder) {
+        if (builder.orderId == null) {
             throw new InvalidOrderException("Order ID cannot be blank");
         }
-        if (customerId == null) {
+        if (builder.customerId == null) {
             throw new InvalidOrderException("Customer ID cannot be blank");
         }
-        this.orderId = orderId;
-        this.customerId = customerId;
-        this.status = OrderStatus.DRAFT;
-        this.items = new ArrayList<>();
-        this.discount = Money.zero();
-        this.total = Money.zero();
-        
+        this.orderId = builder.orderId;
+        this.customerId = builder.customerId;
+        this.status = Objects.requireNonNullElse(builder.status, OrderStatus.DRAFT);
+        this.items = new ArrayList<>(builder.items);
+        this.total = Objects.requireNonNullElse(builder.total, Money.zero());
+        this.discount = Objects.requireNonNullElse(builder.discount, Money.zero());
+        recalculateTotal();
     }
 
     public void addItem(String productId, int quantity, Money price) {
@@ -35,6 +40,14 @@ public class Order {
             throw new InvalidOrderException("Can only add items to DRAFT orders");
         }
 
+        validateItemData(productId, quantity, price);
+
+        OrderItem item = new OrderItem(productId, quantity, price);
+        this.items.add(item);
+        recalculateTotal();
+    }
+
+    private static void validateItemData(String productId, int quantity, Money price) {
         if (quantity <= 0) {
             throw new InvalidOrderException("Quantity must be greater than zero");
         }
@@ -43,9 +56,9 @@ public class Order {
             throw new InvalidOrderException("Price must be greater than zero");
         }
 
-        OrderItem item = new OrderItem(productId, quantity, price);
-        this.items.add(item);
-        recalculateTotal();
+        if (productId == null || productId.isBlank()) {
+            throw new InvalidOrderException("Product ID cannot be blank");
+        }
     }
 
     // ✅ Método para calcular subtotal (sem desconto)
@@ -92,6 +105,9 @@ public class Order {
     }
 
     public void applyDiscount(Money discount) {
+        if (discount == null) {
+            throw new InvalidOrderException("Discount cannot be null");
+        }
         // Validar desconto negativo
         if (discount.isNegative()) {
             throw new InvalidOrderException("Discount cannot be negative");
@@ -128,6 +144,39 @@ public class Order {
 
     public Money getTotal() {
         return total;
+    }
+
+    public static class Builder {
+
+        private OrderId orderId;
+        private CustomerId customerId;
+        private OrderStatus status = OrderStatus.DRAFT;
+        private final List<OrderItem> items = new ArrayList<>();
+        private Money total = Money.zero();
+        private Money discount = Money.zero();
+
+        public Builder() {
+        }
+
+        public Builder withOrderId(OrderId orderId) {
+            this.orderId = orderId;
+            return this;
+        }
+
+        public Builder withCustomerId(CustomerId customerId) {
+            this.customerId = customerId;
+            return this;
+        }
+
+        public Builder addItem(String productId, int quantity, Money price) {
+            validateItemData(productId, quantity, price);
+            this.items.add(new OrderItem(productId, quantity, price));
+            return this;
+        }
+
+        public Order build() {
+            return new Order(this);
+        }
     }
 
 }

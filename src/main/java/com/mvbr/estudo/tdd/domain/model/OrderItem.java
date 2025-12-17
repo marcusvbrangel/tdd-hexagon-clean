@@ -14,6 +14,12 @@ public class OrderItem {
         if (productId == null || productId.isBlank()) {
             throw new InvalidOrderException("Product ID cannot be blank");
         }
+        if (quantity <= 0) {
+            throw new InvalidOrderException("Quantity must be greater than zero");
+        }
+        if (price == null || price.isZeroOrNegative()) {
+            throw new InvalidOrderException("Price must be greater than zero");
+        }
         this.productId = productId;
         this.quantity = quantity;
         this.price = price;
@@ -49,7 +55,6 @@ public class OrderItem {
         return Objects.hash(productId, quantity, price);
     }
 }
-
 
 
 

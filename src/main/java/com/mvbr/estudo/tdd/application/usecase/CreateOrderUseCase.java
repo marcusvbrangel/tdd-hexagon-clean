@@ -25,7 +25,10 @@ public class CreateOrderUseCase {
         CustomerId customerId = new CustomerId(orderCommand.customerId());
 
         // criacao do aggregate root...
-        Order order = new Order(orderId, customerId);
+        Order order = Order.builder()
+                .withOrderId(orderId)
+                .withCustomerId(customerId)
+                .build();
 
         // orquestra comportamento do dominio...
         orderCommand.items().forEach(item -> order.addItem(
