@@ -1,13 +1,17 @@
 package com.mvbr.estudo.tdd.infrastructure.adapter.out.messaging.outbox;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;import java.util.logging.Logger;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.logging.Logger;
 
 @Component
+@ConditionalOnProperty(prefix = "outbox.relay", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class OutboxRelay {
 
     private static final Logger log = Logger.getLogger(OutboxRelay.class.getName());
@@ -25,20 +29,34 @@ public class OutboxRelay {
     public void tick() {
 
         List<OutboxMessageJpaEntity> pending =
-                outboxRepository.findTop100ByStatusOrderByCreatedAtAsc(OutboxMessageJpaEntity.Status.PENDING.name());
+                outboxRepository.findTop100ByStatusInAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
+                        List.of(
+                                OutboxMessageJpaEntity.Status.PENDING.name(),
+                                OutboxMessageJpaEntity.Status.FAILED.name()
+                        ),
+                        java.time.Instant.now()
+                );
 
         log.info("OutboxRelay tick - pending size: " + pending.size());
 
         for (OutboxMessageJpaEntity msg : pending) {
             try {
-
-                log.info("Message Pending ::: Event Type: " + msg.getEventType() + ", Aggregate ID: " + msg.getAggregateId() + ", Payload: " + msg.getPayloadJson());
-
-                kafkaTemplate.send(msg.getEventType(), msg.getAggregateId(), msg.getPayloadJson());
+                msg.markInProgress();
+                kafkaTemplate.send(msg.getEventType(), msg.getAggregateId(), msg.getPayloadJson())
+                        .thenApply(result -> {
+                            result.getProducerRecord().headers()
+                                    .add("eventId", msg.getEventId().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                            return result;
+                        })
+                        .get();
                 msg.markPublished();
-            } catch (Exception e) {
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                msg.markFailed(e.getMessage());
+                throw new IllegalStateException("Thread interrupted while publishing outbox id=" + msg.getId(), e);
+            } catch (ExecutionException e) {
                 log.warning("Outbox publish failed msg.getId(): " + msg.getId() + ", e.getMessage(): " + e.getMessage());
-                msg.markFailed();
+                msg.markFailed(e.getMessage());
             }
         }
     }

@@ -78,6 +78,7 @@ public class OrderCommandService implements
 
         order.confirm();
         orderRepository.save(order);
+        order.pullEvents().forEach(eventPublisher::publish);
         return order;
     }
 
@@ -89,6 +90,7 @@ public class OrderCommandService implements
 
         order.cancel();
         orderRepository.save(order);
+        order.pullEvents().forEach(eventPublisher::publish);
         return order;
     }
 
@@ -96,7 +98,6 @@ public class OrderCommandService implements
 
 
 }
-
 
 
 

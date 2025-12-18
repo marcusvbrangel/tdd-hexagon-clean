@@ -4,6 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mvbr.estudo.tdd.application.port.out.EventPublisher;
 import com.mvbr.estudo.tdd.domain.event.DomainEvent;
+import com.mvbr.estudo.tdd.domain.event.OrderCanceledEvent;
+import com.mvbr.estudo.tdd.domain.event.OrderConfirmedEvent;
+import com.mvbr.estudo.tdd.domain.event.OrderPlacedEvent;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
@@ -29,10 +32,25 @@ public class OutboxEventPublisherAdapter implements EventPublisher {
         }
 
         outboxRepository.save(new OutboxMessageJpaEntity(
+                event.eventId(),
                 "Order",
-                event.eventId(),          // simplificado pro kit
+                resolveAggregateId(event),
                 event.eventType(),
-                payload
+                payload,
+                event.occurredAt()
         ));
+    }
+
+    private String resolveAggregateId(DomainEvent event) {
+        if (event instanceof OrderPlacedEvent orderPlacedEvent) {
+            return orderPlacedEvent.orderId().value();
+        }
+        if (event instanceof OrderConfirmedEvent orderConfirmedEvent) {
+            return orderConfirmedEvent.orderId().value();
+        }
+        if (event instanceof OrderCanceledEvent orderCanceledEvent) {
+            return orderCanceledEvent.orderId().value();
+        }
+        throw new IllegalArgumentException("Unsupported event type for outbox: " + event.getClass().getName());
     }
 }

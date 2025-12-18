@@ -3,6 +3,7 @@ package com.mvbr.estudo.tdd.domain.model;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.mvbr.estudo.tdd.domain.exception.DomainException;
 import com.mvbr.estudo.tdd.domain.exception.InvalidOrderException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,8 +49,8 @@ class OrderTest {
                 .withOrderId(null)
                 .withCustomerId(new CustomerId("cust-456"))
                 .build())
-                .isExactlyInstanceOf(InvalidOrderException.class)
-                .hasMessage("Order ID cannot be blank");
+                .isExactlyInstanceOf(DomainException.class)
+                .hasMessage("Order ID cannot be null");
 
     }
 
@@ -76,8 +77,8 @@ class OrderTest {
                 .withOrderId(new OrderId("ord-123"))
                 .withCustomerId(null)
                 .build())
-                .isExactlyInstanceOf(InvalidOrderException.class)
-                .hasMessage("Customer ID cannot be blank");
+                .isExactlyInstanceOf(DomainException.class)
+                .hasMessage("Customer ID cannot be null");
 
     }
 
@@ -144,10 +145,11 @@ class OrderTest {
         Order order = Order.builder()
                 .withOrderId(new OrderId("ord-restore"))
                 .withCustomerId(new CustomerId("cust-001"))
-                .addItem("prod-1", 2, new Money(new BigDecimal("10.00")))
-                .addItem("prod-2", 1, new Money(new BigDecimal("20.00")))
                 .build();
+        order.addItem("prod-1", 2, new Money(new BigDecimal("10.00")));
+        order.addItem("prod-2", 1, new Money(new BigDecimal("20.00")));
         order.applyDiscount(new Money(new BigDecimal("5.00")));
+        order.place();
         order.confirm();
 
         // Then

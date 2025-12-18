@@ -1,6 +1,8 @@
 package com.mvbr.estudo.tdd.domain.model;
 
 import com.mvbr.estudo.tdd.domain.event.DomainEvent;
+import com.mvbr.estudo.tdd.domain.event.OrderCanceledEvent;
+import com.mvbr.estudo.tdd.domain.event.OrderConfirmedEvent;
 import com.mvbr.estudo.tdd.domain.event.OrderPlacedEvent;
 import com.mvbr.estudo.tdd.domain.exception.DomainException;
 
@@ -88,12 +90,13 @@ public class Order {
     public void confirm() {
         ensureStatus(OrderStatus.PLACED);
         this.status = OrderStatus.CONFIRMED;
+        registerEvent(OrderConfirmedEvent.of(orderId, customerId));
     }
 
     public void cancel() {
-        // regra definida por você: cancelar só em DRAFT
         ensureStatus(OrderStatus.DRAFT);
         this.status = OrderStatus.CANCELED;
+        registerEvent(OrderCanceledEvent.of(orderId, customerId));
     }
 
     private Money calculateSubtotal() {

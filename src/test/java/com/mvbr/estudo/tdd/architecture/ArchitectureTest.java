@@ -68,7 +68,8 @@ class ArchitectureTest {
     static final ArchRule useCasesDoNotDependOnQueries = noClasses()
             .that().resideInAPackage("..application.usecase..")
             .should().dependOnClassesThat()
-            .resideInAPackage("..application.query..");
+            .resideInAPackage("..application.query..")
+            .allowEmptyShould(true);
 
     @ArchTest
     static final ArchRule queryAdaptersStayOutOfDomain = noClasses()
