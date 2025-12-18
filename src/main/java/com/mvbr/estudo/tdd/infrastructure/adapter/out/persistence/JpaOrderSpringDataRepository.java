@@ -17,3 +17,4 @@ public interface JpaOrderSpringDataRepository extends JpaRepository<JpaOrderEnti
     Optional<JpaOrderEntity> findById(String orderId);
 
 }
+

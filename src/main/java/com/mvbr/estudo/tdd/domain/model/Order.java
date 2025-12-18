@@ -1,6 +1,6 @@
 package com.mvbr.estudo.tdd.domain.model;
 
-import com.mvbr.estudo.tdd.domain.exception.InvalidOrderException;
+import com.mvbr.estudo.tdd.domain.exception.DomainException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,8 +10,10 @@ public class Order {
 
     private final OrderId orderId;
     private final CustomerId customerId;
+
     private OrderStatus status;
     private final List<OrderItem> items;
+
     private Money total;
     private Money discount;
 
@@ -21,106 +23,138 @@ public class Order {
 
     private Order(Builder builder) {
         if (builder.orderId == null) {
-            throw new InvalidOrderException("Order ID cannot be blank");
+            throw new DomainException("Order ID cannot be null");
         }
         if (builder.customerId == null) {
-            throw new InvalidOrderException("Customer ID cannot be blank");
+            throw new DomainException("Customer ID cannot be null");
         }
+
         this.orderId = builder.orderId;
         this.customerId = builder.customerId;
-        this.status = Objects.requireNonNullElse(builder.status, OrderStatus.DRAFT);
-        this.items = new ArrayList<>(builder.items);
-        this.total = Objects.requireNonNullElse(builder.total, Money.zero());
-        this.discount = Objects.requireNonNullElse(builder.discount, Money.zero());
-        recalculateTotal();
+
+        this.status = OrderStatus.DRAFT;
+        this.items = new ArrayList<>();
+
+        this.discount = Money.zero();
+        this.total = Money.zero(); // calculado a partir de items + discount
     }
 
     public void addItem(String productId, int quantity, Money price) {
-        if (status != OrderStatus.DRAFT) {
-            throw new InvalidOrderException("Can only add items to DRAFT orders");
-        }
+        ensureDraft();
 
-        validateItemData(productId, quantity, price);
+        // OrderItem já valida productId/quantity/price, então não duplica validação aqui.
+        items.add(new OrderItem(productId, quantity, price));
 
-        OrderItem item = new OrderItem(productId, quantity, price);
-        this.items.add(item);
         recalculateTotal();
     }
 
-    private static void validateItemData(String productId, int quantity, Money price) {
-        if (quantity <= 0) {
-            throw new InvalidOrderException("Quantity must be greater than zero");
+    public void applyDiscount(Money discount) {
+        ensureDraft();
+
+        if (discount == null) {
+            throw new DomainException("Discount cannot be null");
         }
 
-        if (price == null || price.isZeroOrNegative()) {
-            throw new InvalidOrderException("Price must be greater than zero");
+        Money subtotal = calculateSubtotal();
+
+        // permite desconto == subtotal (total pode ser 0)
+        if (discount.isGreaterThan(subtotal)) {
+            throw new DomainException("Discount cannot be greater than subtotal");
         }
 
-        if (productId == null || productId.isBlank()) {
-            throw new InvalidOrderException("Product ID cannot be blank");
-        }
+        this.discount = discount;
+        recalculateTotal();
     }
 
-    // ✅ Método para calcular subtotal (sem desconto)
+    public void place() {
+        ensureStatus(OrderStatus.DRAFT);
+
+        if (items.isEmpty()) {
+            throw new DomainException("Cannot place an order with no items");
+        }
+
+        // Total já está sempre recalculado ao adicionar item/aplicar desconto,
+        // mas isso blinda caso alguém mexa no código futuramente.
+        recalculateTotal();
+
+        this.status = OrderStatus.PLACED;
+    }
+
+    public void confirm() {
+        ensureStatus(OrderStatus.PLACED);
+        this.status = OrderStatus.CONFIRMED;
+    }
+
+    public void cancel() {
+        // regra definida por você: cancelar só em DRAFT
+        ensureStatus(OrderStatus.DRAFT);
+        this.status = OrderStatus.CANCELED;
+    }
+
     private Money calculateSubtotal() {
         return items.stream()
                 .map(OrderItem::getSubTotal)
                 .reduce(Money.zero(), Money::add);
     }
 
-    // ✅ Modificar para incluir desconto
     private void recalculateTotal() {
         Money subtotal = calculateSubtotal();
-        this.total = subtotal.subtract(this.discount);
+
+        // Money.subtract já impede resultado negativo, então isso blinda total < 0.
+        Money newTotal = subtotal.subtract(this.discount);
+
+        // opcionalmente: garantimos consistência (nunca null)
+        this.total = Objects.requireNonNull(newTotal, "Total cannot be null");
     }
 
-    public void confirm() {
-        if (items.isEmpty()) {
-            throw new InvalidOrderException("Cannot confirm order without items");
-        }
-
-        if (status != OrderStatus.DRAFT) {
-            throw new InvalidOrderException("Only DRAFT orders can be confirmed");
-        }
-
-        this.status = OrderStatus.CONFIRMED;
+    private void ensureDraft() {
+        ensureStatus(OrderStatus.DRAFT);
     }
 
-    // ✅ Novo método: cancelar pedido
-    public void cancel() {
-        if (status == OrderStatus.COMPLETED) {
-            throw new InvalidOrderException("Cannot cancel completed order");
+    private void ensureStatus(OrderStatus expected) {
+        if (this.status != expected) {
+            throw new DomainException("Invalid status transition: expected " + expected + " but was " + status);
         }
-
-        this.status = OrderStatus.CANCELLED;
     }
 
-    // ✅ Novo método: completar pedido
-    public void complete() {
-        if (status != OrderStatus.CONFIRMED) {
-            throw new InvalidOrderException("Only CONFIRMED orders can be completed");
-        }
+    public static Order restore(
+            OrderId orderId,
+            CustomerId customerId,
+            OrderStatus status,
+            List<OrderItem> items,
+            Money discount
+    ) {
+        if (orderId == null) throw new DomainException("Order ID cannot be null");
+        if (customerId == null) throw new DomainException("Customer ID cannot be null");
+        if (status == null) throw new DomainException("Order status cannot be null");
+        if (items == null) throw new DomainException("Order items cannot be null");
+        if (discount == null) discount = Money.zero();
 
-        this.status = OrderStatus.COMPLETED;
+        Order order = Order.builder()
+                .withOrderId(orderId)
+                .withCustomerId(customerId)
+                .build();
+
+        // reidratação: inserir itens sem regras de DRAFT
+        order.items.addAll(items);
+
+        order.discount = discount;
+        order.recalculateTotal();
+
+        // status do banco é “fonte da verdade” na reidratação
+        order.status = status;
+
+        return order;
     }
 
-    public void applyDiscount(Money discount) {
-        if (discount == null) {
-            throw new InvalidOrderException("Discount cannot be null");
+    public void restoreStatusFromPersistence(OrderStatus status) {
+        if (status == null) {
+            throw new DomainException("Status cannot be null");
         }
-        // Validar desconto negativo
-        if (discount.isNegative()) {
-            throw new InvalidOrderException("Discount cannot be negative");
-        }
-
-        Money subtotal = calculateSubtotal();
-        if (discount.isGreaterThan(subtotal)) {
-            throw new InvalidOrderException("Discount cannot be greater than subtotal");
-        }
-
-        this.discount = discount;
-        recalculateTotal();
+        this.status = status;
     }
+
+
 
     public OrderId getOrderId() {
         return orderId;
@@ -150,13 +184,6 @@ public class Order {
 
         private OrderId orderId;
         private CustomerId customerId;
-        private OrderStatus status = OrderStatus.DRAFT;
-        private final List<OrderItem> items = new ArrayList<>();
-        private Money total = Money.zero();
-        private Money discount = Money.zero();
-
-        public Builder() {
-        }
 
         public Builder withOrderId(OrderId orderId) {
             this.orderId = orderId;
@@ -168,15 +195,43 @@ public class Order {
             return this;
         }
 
-        public Builder addItem(String productId, int quantity, Money price) {
-            validateItemData(productId, quantity, price);
-            this.items.add(new OrderItem(productId, quantity, price));
-            return this;
-        }
-
         public Order build() {
             return new Order(this);
         }
     }
+
+
+    /*
+    ======================================================
+
+    Requisito no domínio:
+
+        Pra isso funcionar bem, seu Order.place() precisa:
+
+        permitir apenas se status == DRAFT
+
+        exigir items não vazio
+
+        setar status = PLACED
+
+        E aí:
+
+        confirm() só funciona se PLACED
+
+        cancel() só funciona se PLACED (ou DRAFT também, se você quiser)
+
+        -----------------------------------------------------------
+        Diagrama de estados / transições:
+
+            DRAFT -> PLACED
+
+            PLACED -> CONFIRMED
+
+            CONFIRMED -> COMPLETED
+
+            DRAFT -> CANCELED
+
+    =====================================================
+     */
 
 }

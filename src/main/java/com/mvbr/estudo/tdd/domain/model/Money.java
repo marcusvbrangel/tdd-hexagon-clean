@@ -8,24 +8,35 @@ import java.util.Objects;
 
 public record Money(BigDecimal value) {
 
+    public static final int SCALE = 2;
+
     public static Money zero() {
         return new Money(BigDecimal.ZERO);
     }
 
     public Money(BigDecimal value) {
-        if (value == null || value.signum() < 0) {
-            throw new InvalidOrderException("Money cannot be negative");
+        if (value == null) {
+            throw new InvalidOrderException("Money amount cannot be null");
         }
-        this.value = value.setScale(2, RoundingMode.HALF_UP);
+        if (value.signum() < 0) {
+            throw new InvalidOrderException("Money amount cannot be negative");
+        }
+        this.value = value.setScale(SCALE, RoundingMode.HALF_UP);
+    }
+
+    public BigDecimal amount() {
+        return value;
     }
 
     public Money add(Money other) {
+        Objects.requireNonNull(other, "Other money cannot be null");
         return new Money(this.value.add(other.value));
     }
 
     public Money subtract(Money other) {
+        Objects.requireNonNull(other, "Other money cannot be null");
         if (this.value.compareTo(other.value) < 0) {
-            throw new InvalidOrderException("Result cannot be negative");
+            throw new InvalidOrderException("Money operation would result in negative value");
         }
         return new Money(this.value.subtract(other.value));
     }
@@ -37,24 +48,22 @@ public record Money(BigDecimal value) {
         return new Money(this.value.multiply(BigDecimal.valueOf(factor)));
     }
 
-    public boolean isZeroOrNegative() {
-        return this.value.signum() <= 0;
+    public boolean isZero() {
+        return this.value.signum() == 0;
     }
 
-    public boolean isNegative() {
-        return this.value.signum() < 0;
+    public boolean isPositive() {
+        return this.value.signum() > 0;
     }
 
     public boolean isGreaterThan(Money other) {
+        Objects.requireNonNull(other, "Other money cannot be null");
         return this.value.compareTo(other.value) > 0;
     }
 
     public boolean isLessThan(Money other) {
+        Objects.requireNonNull(other, "Other money cannot be null");
         return this.value.compareTo(other.value) < 0;
-    }
-
-    public BigDecimal toBigDecimal() {
-        return value;
     }
 
     @Override
@@ -62,6 +71,7 @@ public record Money(BigDecimal value) {
         return value.toPlainString();
     }
 
+    // Igualdade numérica (10.0 == 10.00)
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

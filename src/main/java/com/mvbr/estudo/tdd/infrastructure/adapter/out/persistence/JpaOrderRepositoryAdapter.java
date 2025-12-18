@@ -30,12 +30,4 @@ public class JpaOrderRepositoryAdapter implements OrderRepository {
                 .map(mapper::toDomain);
     }
 
-    @Override
-    public java.util.List<Order> findAll() {
-        return repository.findAll()
-                .stream()
-                .map(mapper::toDomain)
-                .toList();
-    }
-
 }

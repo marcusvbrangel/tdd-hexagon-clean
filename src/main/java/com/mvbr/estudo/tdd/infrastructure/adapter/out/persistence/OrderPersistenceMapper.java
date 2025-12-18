@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static java.util.concurrent.Future.State.CANCELLED;
+
 @Component
 public class OrderPersistenceMapper {
 
@@ -25,8 +27,8 @@ public class OrderPersistenceMapper {
         entity.setOrderId(order.getOrderId().value());
         entity.setCustomerId(order.getCustomerId().value());
         entity.setStatus(order.getStatus());
-        entity.setDiscount(order.getDiscount().toBigDecimal());
-        entity.setTotal(order.getTotal().toBigDecimal());
+        entity.setDiscount(order.getDiscount().amount());
+        entity.setTotal(order.getTotal().amount());
 
         List<JpaOrderItemEntity> items = order.getItems()
                 .stream()
@@ -45,7 +47,7 @@ public class OrderPersistenceMapper {
 
         entity.setProductId(item.getProductId());
         entity.setQuantity(item.getQuantity());
-        entity.setPrice(item.getPrice().toBigDecimal());
+        entity.setPrice(item.getPrice().amount());
 
         return entity;
     }
@@ -55,35 +57,35 @@ public class OrderPersistenceMapper {
     // ============================
     public Order toDomain(JpaOrderEntity entity) {
 
-        Order.Builder builder = Order.builder()
-                .withOrderId(new OrderId(entity.getOrderId()))
-                .withCustomerId(new CustomerId(entity.getCustomerId()));
+        List<OrderItem> items = entity.getItems().stream()
+                .map(i -> new OrderItem(
+                        i.getProductId(),
+                        i.getQuantity(),
+                        new Money(i.getPrice())
+                ))
+                .toList();
 
-        entity.getItems().forEach(item -> builder.addItem(
-                item.getProductId(),
-                item.getQuantity(),
-                new Money(item.getPrice())
-        ));
+        Money discount = entity.getDiscount() == null
+                ? Money.zero()
+                : new Money(entity.getDiscount());
 
-        Order order = builder.build();
-        if (entity.getDiscount() != null) {
-            order.applyDiscount(new Money(entity.getDiscount()));
-        }
-        restoreStatus(order, entity.getStatus());
-        return order;
+        return Order.restore(
+                new OrderId(entity.getOrderId()),
+                new CustomerId(entity.getCustomerId()),
+                entity.getStatus(),
+                items,
+                discount
+        );
     }
+
+
 
     private void restoreStatus(Order order, OrderStatus status) {
-        switch (status) {
-            case CONFIRMED -> order.confirm();
-            case COMPLETED -> {
-                order.confirm();
-                order.complete();
-            }
-            case CANCELLED -> order.cancel();
-            case DRAFT -> {
-                // nada a fazer
-            }
+        if (order == null) {
+            throw new IllegalArgumentException("Order cannot be null");
         }
+        order.restoreStatusFromPersistence(status);
     }
+
+
 }

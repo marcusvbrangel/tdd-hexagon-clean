@@ -1,16 +1,13 @@
 package com.mvbr.estudo.tdd.infrastructure.adapter.in.web.mapper;
 
-import com.mvbr.estudo.tdd.application.port.in.CreateOrderCommand;
-import com.mvbr.estudo.tdd.application.port.in.CreateOrderItemCommand;
-import com.mvbr.estudo.tdd.application.port.in.PlaceOrderCommand;
-import com.mvbr.estudo.tdd.application.port.in.PlaceOrderItemCommand;
+import com.mvbr.estudo.tdd.application.command.PlaceOrderCommand;
+import com.mvbr.estudo.tdd.application.command.PlaceOrderItemCommand;
 import com.mvbr.estudo.tdd.application.query.OrderItemReadModel;
 import com.mvbr.estudo.tdd.application.query.OrderReadModel;
 import com.mvbr.estudo.tdd.application.query.OrderSummaryReadModel;
 import com.mvbr.estudo.tdd.domain.model.Order;
 import com.mvbr.estudo.tdd.domain.model.OrderItem;
 import com.mvbr.estudo.tdd.domain.model.OrderStatus;
-import com.mvbr.estudo.tdd.infrastructure.adapter.in.web.dto.CreateOrderItemRequest;
 import com.mvbr.estudo.tdd.infrastructure.adapter.in.web.dto.CreateOrderRequest;
 import com.mvbr.estudo.tdd.infrastructure.adapter.in.web.dto.OrderItemResponse;
 import com.mvbr.estudo.tdd.infrastructure.adapter.in.web.dto.OrderResponse;
@@ -18,22 +15,10 @@ import com.mvbr.estudo.tdd.infrastructure.adapter.in.web.dto.OrderSummaryRespons
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
 
 @Component
 public class OrderWebMapper {
-
-    public CreateOrderCommand toCommand(CreateOrderRequest request) {
-        List<CreateOrderItemCommand> items = request.items()
-                .stream()
-                .map(this::toItemCommand)
-                .toList();
-
-        return new CreateOrderCommand(
-                request.customerId(),
-                items,
-                request.discount()
-        );
-    }
 
     public OrderResponse toResponse(Order order) {
         List<OrderItemResponse> items = order.getItems()
@@ -45,8 +30,8 @@ public class OrderWebMapper {
                 order.getOrderId().value(),
                 order.getCustomerId().value(),
                 order.getStatus(),
-                order.getDiscount().toBigDecimal(),
-                order.getTotal().toBigDecimal(),
+                order.getDiscount().amount(),
+                order.getTotal().amount(),
                 items
         );
     }
@@ -90,15 +75,7 @@ public class OrderWebMapper {
         return new PlaceOrderCommand(
                 request.customerId(),
                 items,
-                request.discount()
-        );
-    }
-
-    private CreateOrderItemCommand toItemCommand(CreateOrderItemRequest item) {
-        return new CreateOrderItemCommand(
-                item.productId(),
-                item.quantity(),
-                item.price()
+                Optional.of(request.discount())
         );
     }
 
@@ -106,8 +83,8 @@ public class OrderWebMapper {
         return new OrderItemResponse(
                 item.getProductId(),
                 item.getQuantity(),
-                item.getPrice().toBigDecimal(),
-                item.getSubTotal().toBigDecimal()
+                item.getPrice().amount(),
+                item.getSubTotal().amount()
         );
     }
 
