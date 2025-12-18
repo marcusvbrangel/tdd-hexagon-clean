@@ -62,14 +62,8 @@ public class OrderCommandService implements
         // persistencia...
         orderRepository.save(order);
 
-        // evento de dominio (placeholder para futura publicação)
-//        OrderCreatedEvent event = new OrderCreatedEvent(
-//                orderId,
-//                customerId,
-//                placeOrderCommand.items().stream().map(item -> item.productId()).toList()
-//        );
-
-        // TODO: publicar evento quando EventPublisher estiver implementado
+        // eventos de dominio...
+        order.pullEvents().forEach(eventPublisher::publish);
 
         // retorna o minimo (opcional mas util)...
         return orderId;

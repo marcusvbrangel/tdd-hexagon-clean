@@ -1,5 +1,7 @@
 package com.mvbr.estudo.tdd.domain.model;
 
+import com.mvbr.estudo.tdd.domain.event.DomainEvent;
+import com.mvbr.estudo.tdd.domain.event.OrderPlacedEvent;
 import com.mvbr.estudo.tdd.domain.exception.DomainException;
 
 import java.util.ArrayList;
@@ -10,12 +12,11 @@ public class Order {
 
     private final OrderId orderId;
     private final CustomerId customerId;
-
     private OrderStatus status;
     private final List<OrderItem> items;
-
     private Money total;
     private Money discount;
+    private final List<DomainEvent> events;
 
     public static Builder builder() {
         return new Builder();
@@ -37,6 +38,9 @@ public class Order {
 
         this.discount = Money.zero();
         this.total = Money.zero(); // calculado a partir de items + discount
+
+        this.events = new ArrayList<>();
+
     }
 
     public void addItem(String productId, int quantity, Money price) {
@@ -78,6 +82,7 @@ public class Order {
         recalculateTotal();
 
         this.status = OrderStatus.PLACED;
+        registerEvent(OrderPlacedEvent.of(orderId, customerId, productIds()));
     }
 
     public void confirm() {
@@ -154,7 +159,11 @@ public class Order {
         this.status = status;
     }
 
-
+    public List<DomainEvent> pullEvents() {
+        List<DomainEvent> copy = List.copyOf(events);
+        events.clear();
+        return copy;
+    }
 
     public OrderId getOrderId() {
         return orderId;
@@ -178,6 +187,20 @@ public class Order {
 
     public Money getTotal() {
         return total;
+    }
+
+    private void registerEvent(DomainEvent event) {
+        if (event == null) {
+            throw new DomainException("Event cannot be null");
+        }
+        events.add(event);
+    }
+
+    private List<ProductId> productIds() {
+        return items.stream()
+                .map(OrderItem::getProductId)
+                .map(ProductId::new)
+                .toList();
     }
 
     public static class Builder {

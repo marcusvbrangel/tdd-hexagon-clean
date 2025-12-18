@@ -8,7 +8,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-public record OrderCreatedEvent(
+public record OrderPlacedEvent(
     String eventId,
     Instant occurredAt,
     OrderId orderId,
@@ -16,11 +16,12 @@ public record OrderCreatedEvent(
     List<ProductId> productIds
 ) implements DomainEvent {
 
-    public static OrderCreatedEvent of(OrderId orderId, CustomerId customerId, List<ProductId> productIds) {
-        return new OrderCreatedEvent(UUID.randomUUID().toString(), Instant.now(), orderId, customerId, List.copyOf(productIds));
+    public static OrderPlacedEvent of(OrderId orderId, CustomerId customerId, List<ProductId> productIds) {
+        return new OrderPlacedEvent(UUID.randomUUID().toString(),
+                Instant.now(), orderId, customerId, List.copyOf(productIds));
     }
 
     @Override public String eventType() {
-        return "OrderCreatedEvent";
+        return "OrderPlacedEvent";
     }
 }
