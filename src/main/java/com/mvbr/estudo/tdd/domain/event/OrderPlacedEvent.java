@@ -22,6 +22,6 @@ public record OrderPlacedEvent(
     }
 
     @Override public String eventType() {
-        return "OrderPlacedEvent";
+        return "order.placed";
     }
 }

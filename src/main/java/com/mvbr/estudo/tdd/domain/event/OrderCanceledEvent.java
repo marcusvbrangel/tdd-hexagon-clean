@@ -19,6 +19,6 @@ public record OrderCanceledEvent(
 
     @Override
     public String eventType() {
-        return "OrderCanceledEvent";
+        return "order.canceled";
     }
 }

@@ -19,6 +19,6 @@ public record OrderConfirmedEvent(
 
     @Override
     public String eventType() {
-        return "OrderConfirmedEvent";
+        return "order.confirmed";
     }
 }

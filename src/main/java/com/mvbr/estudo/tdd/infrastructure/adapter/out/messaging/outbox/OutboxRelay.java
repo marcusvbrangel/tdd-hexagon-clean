@@ -42,13 +42,17 @@ public class OutboxRelay {
         for (OutboxMessageJpaEntity msg : pending) {
             try {
                 msg.markInProgress();
-                kafkaTemplate.send(msg.getEventType(), msg.getAggregateId(), msg.getPayloadJson())
-                        .thenApply(result -> {
-                            result.getProducerRecord().headers()
-                                    .add("eventId", msg.getEventId().getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                            return result;
-                        })
-                        .get();
+
+                // Create ProducerRecord with headers before sending
+                org.apache.kafka.clients.producer.ProducerRecord<String, String> record =
+                    new org.apache.kafka.clients.producer.ProducerRecord<>(
+                        msg.getEventType(),
+                        msg.getAggregateId(),
+                        msg.getPayloadJson()
+                    );
+                record.headers().add("eventId", msg.getEventId().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+                kafkaTemplate.send(record).get();
                 msg.markPublished();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
