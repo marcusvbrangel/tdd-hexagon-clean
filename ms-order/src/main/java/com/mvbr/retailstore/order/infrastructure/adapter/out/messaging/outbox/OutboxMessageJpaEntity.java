@@ -13,15 +13,15 @@ import jakarta.persistence.Version;
 import java.time.Instant;
 
 @Entity
-    @Table(
-            name = "outbox_messages",
-            indexes = {
-                    @Index(name = "idx_outbox_status_created", columnList = "status, created_at"),
-                    @Index(name = "idx_outbox_status_next_attempt", columnList = "status, next_attempt_at"),
-                    @Index(name = "uk_outbox_event_id", columnList = "event_id", unique = true)
-            }
-    )
-    public class OutboxMessageJpaEntity {
+@Table(
+        name = "outbox_messages",
+        indexes = {
+                @Index(name = "idx_outbox_status_created", columnList = "status, created_at"),
+                @Index(name = "idx_outbox_status_next_attempt", columnList = "status, next_attempt_at"),
+                @Index(name = "uk_outbox_event_id", columnList = "event_id", unique = true)
+        }
+)
+public class OutboxMessageJpaEntity {
 
     public enum Status { PENDING, IN_PROGRESS, PUBLISHED, FAILED }
 
@@ -41,9 +41,16 @@ import java.time.Instant;
     @Column(name = "event_type", nullable = false, length = 128)
     private String eventType;
 
+    @Column(name = "topic", nullable = false, length = 128)
+    private String topic;
+
     @Lob
     @Column(name = "payload_json", nullable = false)
     private String payloadJson;
+
+    @Lob
+    @Column(name = "headers_json", nullable = false)
+    private String headersJson;
 
     @Column(name = "status", nullable = false, length = 32)
     private String status;
@@ -75,13 +82,17 @@ import java.time.Instant;
                                   String aggregateType,
                                   String aggregateId,
                                   String eventType,
+                                  String topic,
                                   String payloadJson,
+                                  String headersJson,
                                   Instant occurredAt) {
         this.eventId = eventId;
         this.aggregateType = aggregateType;
         this.aggregateId = aggregateId;
         this.eventType = eventType;
+        this.topic = topic;
         this.payloadJson = payloadJson;
+        this.headersJson = headersJson;
         this.occurredAt = occurredAt;
         this.status = Status.PENDING.name();
         this.createdAt = Instant.now();
@@ -94,7 +105,9 @@ import java.time.Instant;
     public String getAggregateType() { return aggregateType; }
     public String getAggregateId() { return aggregateId; }
     public String getEventType() { return eventType; }
+    public String getTopic() { return topic; }
     public String getPayloadJson() { return payloadJson; }
+    public String getHeadersJson() { return headersJson; }
     public String getStatus() { return status; }
     public Instant getOccurredAt() { return occurredAt; }
     public Instant getCreatedAt() { return createdAt; }

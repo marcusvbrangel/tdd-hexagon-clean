@@ -1,12 +1,19 @@
 package com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.outbox;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 
@@ -18,10 +25,14 @@ public class OutboxRelay {
 
     private final OutboxJpaRepository outboxRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
+    private final ObjectMapper objectMapper;
 
-    public OutboxRelay(OutboxJpaRepository outboxRepository, KafkaTemplate<String, String> kafkaTemplate) {
+    public OutboxRelay(OutboxJpaRepository outboxRepository,
+                       KafkaTemplate<String, String> kafkaTemplate,
+                       ObjectMapper objectMapper) {
         this.outboxRepository = outboxRepository;
         this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
     }
 
     @Scheduled(fixedDelayString = "${outbox.relay.fixedDelayMs:10000}")
@@ -34,7 +45,7 @@ public class OutboxRelay {
                                 OutboxMessageJpaEntity.Status.PENDING.name(),
                                 OutboxMessageJpaEntity.Status.FAILED.name()
                         ),
-                        java.time.Instant.now()
+                        Instant.now()
                 );
 
         log.info("OutboxRelay tick - pending size: " + pending.size());
@@ -43,14 +54,13 @@ public class OutboxRelay {
             try {
                 msg.markInProgress();
 
-                // Create ProducerRecord with headers before sending
-                org.apache.kafka.clients.producer.ProducerRecord<String, String> record =
-                    new org.apache.kafka.clients.producer.ProducerRecord<>(
-                        msg.getEventType(),
+                ProducerRecord<String, String> record = new ProducerRecord<>(
+                        msg.getTopic(),
                         msg.getAggregateId(),
                         msg.getPayloadJson()
-                    );
-                record.headers().add("eventId", msg.getEventId().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                );
+                parseHeaders(msg).forEach((name, value) ->
+                        record.headers().add(name, value.getBytes(StandardCharsets.UTF_8)));
 
                 kafkaTemplate.send(record).get();
                 msg.markPublished();
@@ -58,10 +68,18 @@ public class OutboxRelay {
                 Thread.currentThread().interrupt();
                 msg.markFailed(e.getMessage());
                 throw new IllegalStateException("Thread interrupted while publishing outbox id=" + msg.getId(), e);
-            } catch (ExecutionException e) {
+            } catch (ExecutionException | RuntimeException e) {
                 log.warning("Outbox publish failed msg.getId(): " + msg.getId() + ", e.getMessage(): " + e.getMessage());
                 msg.markFailed(e.getMessage());
             }
+        }
+    }
+
+    private Map<String, String> parseHeaders(OutboxMessageJpaEntity msg) {
+        try {
+            return objectMapper.readValue(msg.getHeadersJson(), new TypeReference<>() {});
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Could not parse headers for outbox id=" + msg.getId(), e);
         }
     }
 }

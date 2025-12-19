@@ -12,13 +12,16 @@ class OutboxMessageJpaEntityTest {
     @Test
     @DisplayName("markFailed should increase retry count and push next attempt to the future")
     void markFailedBackoff() {
+        Instant occurredAt = Instant.now();
         OutboxMessageJpaEntity msg = new OutboxMessageJpaEntity(
                 "evt-1",
                 "Order",
                 "ord-1",
-                "OrderPlacedEvent",
+                "OrderPlaced",
+                "order.placed",
                 "{}",
-                Instant.now()
+                "{}",
+                occurredAt
         );
 
         Instant firstAttempt = msg.getNextAttemptAt();
@@ -28,5 +31,6 @@ class OutboxMessageJpaEntityTest {
         assertThat(msg.getRetryCount()).isEqualTo(1);
         assertThat(msg.getNextAttemptAt()).isAfter(firstAttempt);
         assertThat(msg.getLastError()).contains("kafka down");
+        assertThat(msg.getTopic()).isEqualTo("order.placed");
     }
 }
