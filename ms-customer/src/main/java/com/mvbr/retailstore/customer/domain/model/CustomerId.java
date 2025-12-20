@@ -6,7 +6,11 @@ import com.mvbr.retailstore.customer.domain.exception.DomainException;
 public record CustomerId(String value) {
 
     public CustomerId {
-        if (value == null || value.isBlank()) {
+        if (value == null) {
+            throw new DomainException("Customer ID cannot be null or blank");
+        }
+        value = value.trim();
+        if (value.isBlank()) {
             throw new DomainException("Customer ID cannot be null or blank");
         }
     }

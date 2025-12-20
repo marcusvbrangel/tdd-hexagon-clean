@@ -11,16 +11,21 @@ public record Email(String value) {
             Pattern.compile("^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$", Pattern.CASE_INSENSITIVE);
 
     public Email {
-        if (value == null || value.isBlank()) {
+        if (value == null) {
+            throw new DomainException("Email is required");
+        }
+        value = value.trim();
+        if (value.isBlank()) {
             throw new DomainException("Email is required");
         }
         if (!EMAIL_PATTERN.matcher(value).matches()) {
             throw new DomainException("Invalid Email");
         }
+        value = value.toLowerCase();
     }
 
     public String normalized() {
-        return value.trim().toLowerCase();
+        return value;
     }
 
 }
