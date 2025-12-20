@@ -1,4 +1,4 @@
-package com.mvbr.retailstore.payment;
+package com.mvbr.retailstore.customer;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

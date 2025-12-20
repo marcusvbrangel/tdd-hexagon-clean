@@ -1,4 +1,4 @@
-package com.mvbr.retailstore.payment;
+package com.mvbr.retailstore.customer;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

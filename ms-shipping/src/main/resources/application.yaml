@@ -61,4 +61,4 @@ spring:
 
     # Topics
 #    topics:
-#      payment-approved: ${KAFKA_TOPIC_PAYMENT_APPROVED:payment.approved.v1}
+#      customer-approved: ${KAFKA_TOPIC_PAYMENT_APPROVED:customer.approved.v1}
