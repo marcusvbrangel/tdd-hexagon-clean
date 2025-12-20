@@ -6,7 +6,10 @@ import java.time.Instant;
 import java.util.Objects;
 
 /*
+
+-----------------------------
 REFACTOR:
+-----------------------------
 
  Entendi: olhando apenas o domínio do microserviço ms-customer (ms-customer/src/main/java/com/mvbr/retailstore/customer/domain/model), segue o
   diagnóstico (nenhuma alteração feita):
@@ -24,8 +27,33 @@ REFACTOR:
   inconsistentes; touch() dependente de clock pode causar exceções raras com skew. Se quiser reforçar, o caminho é DTOs de saída, validações de
   documento/telefone, e (se preciso) um clock injetado/máquina de estados mais restritiva.
 
+› tudo que sair do dominio vai ser mapeado para dto...  garantido!!!!!
 
-› tudo que sair do dominio vai ser mapeado para dto...  garantido!!!!!1
+
+-------------------------------------------
+IMPROVEMENT - FOR DDD PATTERN:
+-------------------------------------------
+
+ Visão rápida do domínio do ms-customer sob a ótica de DDD:
+
+  - Tem um agregado claro (Customer) com identidade (CustomerId) e VOs (Email, Phone, CustomerId) que validam invariantes de formato/nulo. Isso está
+    alinhado com DDD: entidade raiz + VOs imutáveis.
+  - Regras de negócio básicas estão no próprio domínio (validações, idempotência em deactivate/block, checagem de timestamps). Não há vazamento de
+    persistência nem dependência de infraestrutura — bom isolamento.
+  - Faltam regras de transição de estados mais explícitas: hoje dá para sair de qualquer estado para INACTIVE ou BLOCKED, só com idempotência. Em
+    DDD, vale a pena modelar o fluxo permitido ou uma policy que encapsule isso se o negócio exigir.
+  - touch() depende de Instant.now() (clock implícito), o que reduz testabilidade e pode quebrar com clock skew. Em DDD costuma-se injetar um clock/
+    serviço de tempo ou receber “agora” por parâmetro.
+  - Address está vazio; se for parte do modelo, ele não está implementado como VO ainda.
+  - Documentos/telefones não são normalizados/validados além de “non-empty”; se o negócio requer, os VOs poderiam incorporar essas regras para manter
+    o “modelo rico”.
+  - Não há eventos de domínio nem serviços de domínio aqui; se o contexto precisar notificar mudanças relevantes, eventos ou domain services poderiam
+    aparecer.
+
+  Em resumo: estrutura e isolamento estão de acordo com DDD (agregado raiz + VOs + invariantes básicas). Pontos a evoluir, se fizer sentido ao
+  negócio: regras de transição de status mais restritas, validação/normalização mais forte em VOs, clock injetado para consistência/testabilidade, e
+  preencher Address ou removê-lo se não fizer parte do modelo.
+
  */
 
 public class Customer {
