@@ -170,6 +170,13 @@ public class Customer {
         applyChange(now, () -> this.phone = phoneValue);
     }
 
+    public void  activate(Instant now) {
+        if (this.customerStatus == CustomerStatus.ACTIVE) {
+            return;
+        }
+        applyChange(now, () -> this.customerStatus = CustomerStatus.ACTIVE);
+    }
+
     public void deactivate(Instant now) {
         if (this.customerStatus == CustomerStatus.INACTIVE) {  // simple idempotence...
             return;
@@ -287,6 +294,81 @@ public class Customer {
         events.clear();
         return copy;
     }
+
+    // -------------------------------------------------------------------
+    // builder...
+    // -------------------------------------------------------------------
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static class Builder {
+
+        private CustomerId customerId;
+        private String firstName;
+        private String lastName;
+        private DocumentType documentType;
+        private String document;
+        private Email email;
+        private Phone phone;
+        private Instant now;
+
+        public Builder withCustomerId(CustomerId customerId) {
+            this.customerId = customerId;
+            return this;
+        }
+
+        public Builder withFirstName(String firstName) {
+            this.firstName = firstName;
+            return this;
+        }
+
+        public Builder withLastName(String lastName) {
+            this.lastName = lastName;
+            return this;
+        }
+
+        public Builder withDocumentType(DocumentType documentType) {
+            this.documentType = documentType;
+            return this;
+        }
+
+        public Builder withDocument(String document) {
+            this.document = document;
+            return this;
+        }
+
+        public Builder withEmail(Email email) {
+            this.email = email;
+            return this;
+        }
+
+        public Builder withPhone(Phone phone) {
+            this.phone = phone;
+            return this;
+        }
+
+        public Builder withNow(Instant now) {
+            this.now = now;
+            return this;
+        }
+
+        public Customer build() {
+            return Customer.createNew(
+                    customerId,
+                    firstName,
+                    lastName,
+                    documentType,
+                    document,
+                    email,
+                    phone,
+                    now
+            );
+        }
+    }
+
+
 
 /*
 
@@ -408,7 +490,7 @@ AVALIAÇAO:
 
       customerRepository.save(customer);
 
-      customer.pullEvents().forEach(eventPublisher::publish);
+      outboxPublisher.store(customer.pullEvents());
 
       return customerId;
   }
