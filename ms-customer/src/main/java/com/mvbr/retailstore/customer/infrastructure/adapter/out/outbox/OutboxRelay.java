@@ -11,12 +11,16 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @Component
@@ -28,13 +32,16 @@ public class OutboxRelay {
     private final OutboxJpaRepository outboxRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
+    private final long sendTimeoutMs;
 
     public OutboxRelay(OutboxJpaRepository outboxRepository,
                        KafkaTemplate<String, String> kafkaTemplate,
-                       ObjectMapper objectMapper) {
+                       ObjectMapper objectMapper,
+                       @Value("${outbox.relay.sendTimeoutMs:10000}") long sendTimeoutMs) {
         this.outboxRepository = outboxRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
+        this.sendTimeoutMs = sendTimeoutMs;
     }
 
     @Scheduled(fixedDelayString = "${outbox.relay.fixedDelayMs:10000}")
@@ -63,15 +70,29 @@ public class OutboxRelay {
                 parseHeaders(msg).forEach((name, value) ->
                         record.headers().add(name, value.getBytes(StandardCharsets.UTF_8)));
 
-                kafkaTemplate.send(record).get();
+                kafkaTemplate.send(record).get(sendTimeoutMs, TimeUnit.MILLISECONDS);
                 msg.markPublished();
+                log.info("Outbox publish success id=" + msg.getId() + " topic=" + msg.getTopic());
+            } catch (TimeoutException e) {
+                String error = formatError(e);
+                log.warning("Outbox publish timeout id=" + msg.getId()
+                        + " topic=" + msg.getTopic()
+                        + " error=" + error);
+                msg.markFailed(error);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                msg.markFailed(e.getMessage());
-                throw new IllegalStateException("Thread interrupted while publishing outbox id=" + msg.getId(), e);
+                String error = formatError(e);
+                log.log(Level.WARNING, "Outbox publish interrupted id=" + msg.getId()
+                        + " topic=" + msg.getTopic()
+                        + " error=" + error, e);
+                msg.markFailed(error);
+                break;
             } catch (ExecutionException | RuntimeException e) {
-                log.warning("Outbox publish failed msg.getId(): " + msg.getId() + ", e.getMessage(): " + e.getMessage());
-                msg.markFailed(e.getMessage());
+                String error = formatError(e);
+                log.log(Level.WARNING, "Outbox publish failed id=" + msg.getId()
+                        + " topic=" + msg.getTopic()
+                        + " error=" + error, e);
+                msg.markFailed(error);
             }
         }
     }
@@ -82,5 +103,33 @@ public class OutboxRelay {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Could not parse headers for outbox id=" + msg.getId(), e);
         }
+    }
+
+    private String formatError(Throwable throwable) {
+        Throwable root = rootCause(throwable);
+        String message = root.getMessage();
+        String result = root.getClass().getSimpleName();
+        if (message != null && !message.isBlank()) {
+            result = result + ": " + message;
+        }
+        return truncate(result, 512);
+    }
+
+    private Throwable rootCause(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+        return current;
+    }
+
+    private String truncate(String value, int maxLength) {
+        if (value == null) {
+            return null;
+        }
+        if (value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, maxLength);
     }
 }

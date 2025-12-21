@@ -64,8 +64,8 @@ public class OutboxMessageJpaEntity {
     @Column(name = "published_at")
     private Instant publishedAt;
 
-    @Column(name = "last_error", length = 512)
-    private String lastError;
+    @Column(name = "publish_error_details", length = 512)
+    private String publishErrorDetails;
 
     @Column(name = "retry_count", nullable = false)
     private int retryCount;
@@ -112,20 +112,20 @@ public class OutboxMessageJpaEntity {
     public Instant getOccurredAt() { return occurredAt; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getPublishedAt() { return publishedAt; }
-    public String getLastError() { return lastError; }
+    public String getPublishErrorDetails() { return publishErrorDetails; }
     public int getRetryCount() { return retryCount; }
     public Instant getNextAttemptAt() { return nextAttemptAt; }
 
     public void markPublished() {
         this.status = Status.PUBLISHED.name();
         this.publishedAt = Instant.now();
-        this.lastError = null;
+        this.publishErrorDetails = null;
         this.nextAttemptAt = this.publishedAt;
     }
 
-    public void markFailed(String error) {
+    public void markFailed(String details) {
         this.status = Status.FAILED.name();
-        this.lastError = error;
+        this.publishErrorDetails = details;
         this.retryCount = this.retryCount + 1;
         this.nextAttemptAt = computeBackoff();
     }

@@ -56,7 +56,7 @@ class OutboxMessageJpaEntityTest {
         Instant beforeFail = Instant.now();
         entity.markFailed("boom");
         assertEquals("FAILED", entity.getStatus());
-        assertEquals("boom", entity.getLastError());
+        assertEquals("boom", entity.getPublishErrorDetails());
         assertEquals(1, entity.getRetryCount());
         assertTrue(entity.getNextAttemptAt().isAfter(beforeFail));
 
