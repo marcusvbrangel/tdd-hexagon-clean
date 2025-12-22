@@ -1,6 +1,5 @@
 package com.mvbr.retailstore.customer.domain.model;
 
-import com.mvbr.retailstore.customer.domain.event.CustomerChangedEvent;
 import com.mvbr.retailstore.customer.domain.event.CustomerCreatedEvent;
 import com.mvbr.retailstore.customer.domain.event.DomainEvent;
 import com.mvbr.retailstore.customer.domain.exception.DomainException;
@@ -40,68 +39,6 @@ class CustomerTest {
         assertEquals(customer.getCustomerId(), createdEvent.customerId());
         assertFalse(createdEvent.eventId().isBlank());
 
-        assertTrue(customer.pullEvents().isEmpty());
-    }
-
-    @Test
-    void changeFirstNameUpdatesTimestampAndEmitsChangedEvent() {
-        Customer customer = createCustomer(NOW);
-        customer.pullEvents();
-
-        Instant later = NOW.plusSeconds(10);
-        customer.changeFirstName("Maria", later);
-
-        assertEquals("Maria", customer.getFirstName());
-        assertEquals(later, customer.getUpdatedAt());
-
-        List<DomainEvent> events = customer.pullEvents();
-        assertEquals(1, events.size());
-        assertInstanceOf(CustomerChangedEvent.class, events.get(0));
-        CustomerChangedEvent changedEvent = (CustomerChangedEvent) events.get(0);
-        assertEquals("customer.changed", changedEvent.eventType());
-        assertEquals(later, changedEvent.occurredAt());
-        assertEquals(customer.getCustomerId(), changedEvent.customerId());
-    }
-
-    @Test
-    void changeDocumentUpdatesTypeAndValueAndEmitsChangedEvent() {
-        Customer customer = createCustomer(NOW);
-        customer.pullEvents();
-
-        Instant later = NOW.plusSeconds(20);
-        customer.changeDocument(DocumentType.CNPJ, "90.383.305/2048-93", later);
-
-        assertEquals(DocumentType.CNPJ, customer.getDocument().type());
-        assertEquals("90383305204893", customer.getDocument().value());
-        assertEquals(later, customer.getUpdatedAt());
-
-        List<DomainEvent> events = customer.pullEvents();
-        assertEquals(1, events.size());
-        assertInstanceOf(CustomerChangedEvent.class, events.get(0));
-    }
-
-    @Test
-    void noEventWhenValueDoesNotChange() {
-        Customer customer = createCustomer(NOW);
-        customer.pullEvents();
-
-        Instant later = NOW.plusSeconds(5);
-        customer.changeLastName(" Silva ", later);
-
-        assertEquals("Silva", customer.getLastName());
-        assertEquals(NOW, customer.getUpdatedAt());
-        assertTrue(customer.pullEvents().isEmpty());
-    }
-
-    @Test
-    void rejectPastTimestampOnChange() {
-        Customer customer = createCustomer(NOW);
-        customer.pullEvents();
-
-        Instant past = NOW.minusSeconds(1);
-        assertThrows(DomainException.class, () -> customer.changeFirstName("Ana", past));
-        assertEquals("Joao", customer.getFirstName());
-        assertEquals(NOW, customer.getUpdatedAt());
         assertTrue(customer.pullEvents().isEmpty());
     }
 

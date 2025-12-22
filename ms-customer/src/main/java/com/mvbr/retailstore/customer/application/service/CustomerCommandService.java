@@ -10,13 +10,15 @@ import com.mvbr.retailstore.customer.domain.model.*;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Optional;
 
 public class CustomerCommandService implements
         CreateCustomerUseCase,
         UpdateCustomerUseCase,
         ActivateCustomerUseCase,
         DeactivateCustomerUseCase,
-        BlockCustomerUseCase {
+        BlockCustomerUseCase,
+        GetCustomerUseCase {
 
     private final CustomerRepository customerRepository;
     private final CustomerIdGenerator customerIdGenerator;
@@ -71,19 +73,19 @@ public class CustomerCommandService implements
     @Override
     @Transactional
     public void deactivate(DeactivateCustomerCommand command) {
-
+        customerRepository.deactivate(new CustomerId(command.customerId()));
     }
 
     @Override
     @Transactional
     public void activate(ActivateCustomerCommand command) {
-
+        customerRepository.activate(new CustomerId(command.customerId()));
     }
 
     @Override
     @Transactional
     public void block(BlockCustomerCommand command) {
-
+        customerRepository.block(new CustomerId(command.customerId()));
     }
 
     private DocumentType parseDocumentType(String value) {
@@ -95,5 +97,10 @@ public class CustomerCommandService implements
         } catch (IllegalArgumentException ex) {
             throw new InvalidCustomerException("Invalid document type: " + value);
         }
+    }
+
+    @Override
+    public Optional<Customer> getById(GetCustomerCommand command) {
+        return customerRepository.findById(new CustomerId(command.customerId()));
     }
 }

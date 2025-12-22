@@ -15,6 +15,6 @@ public interface CustomerRepository {
 
     void deactivate(CustomerId customerId);
 
-    void block(Customer customer);
+    void block(CustomerId customerId);
 
 }

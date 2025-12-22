@@ -130,46 +130,6 @@ public class Customer {
     // rules/behaviors of domain...
     // -------------------------------------------------------------------
 
-    public void changeFirstName(String newFirstName, Instant now) {
-        var normalized = requireText(newFirstName, "First name is required");
-        if (normalized.equals(this.firstName)) {
-            return;
-        }
-        applyChange(now, () -> this.firstName = normalized);
-    }
-
-    public void changeLastName(String newLastName, Instant now) {
-        var normalized = requireText(newLastName, "Last name is required");
-        if (normalized.equals(this.lastName)) {
-            return;
-        }
-        applyChange(now, () -> this.lastName = normalized);
-    }
-
-    public void changeDocument(DocumentType newDocumentType, String newDocument, Instant now) {
-        var documentValue = new Document(newDocumentType, newDocument);
-        if (documentValue.equals(this.document)) {
-            return;
-        }
-        applyChange(now, () -> this.document = documentValue);
-    }
-
-    public void changeEmail(Email newEmail, Instant now) {
-        var emailValue = require(newEmail, "Email is required");
-        if (emailValue.equals(this.email)) {
-            return;
-        }
-        applyChange(now, () -> this.email = emailValue);
-    }
-
-    public void changePhone(Phone newPhone, Instant now) {
-        var phoneValue = require(newPhone, "Phone is required");
-        if (phoneValue.equals(this.phone)) {
-            return;
-        }
-        applyChange(now, () -> this.phone = phoneValue);
-    }
-
     public void  activate(Instant now) {
         if (this.customerStatus == CustomerStatus.ACTIVE) {
             return;

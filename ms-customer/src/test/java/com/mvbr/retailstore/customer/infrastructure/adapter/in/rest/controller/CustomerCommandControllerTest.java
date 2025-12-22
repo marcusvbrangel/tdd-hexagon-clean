@@ -9,9 +9,10 @@ import com.mvbr.retailstore.customer.application.port.in.ActivateCustomerUseCase
 import com.mvbr.retailstore.customer.application.port.in.BlockCustomerUseCase;
 import com.mvbr.retailstore.customer.application.port.in.CreateCustomerUseCase;
 import com.mvbr.retailstore.customer.application.port.in.DeactivateCustomerUseCase;
+import com.mvbr.retailstore.customer.application.port.in.GetCustomerUseCase;
 import com.mvbr.retailstore.customer.application.port.in.UpdateCustomerUseCase;
 import com.mvbr.retailstore.customer.domain.model.CustomerId;
-import com.mvbr.retailstore.customer.infrastructure.adapter.in.rest.controller.command.CustomerCommandController;
+import com.mvbr.retailstore.customer.infrastructure.adapter.in.rest.mapper.CustomerRestMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -52,6 +53,12 @@ class CustomerCommandControllerTest {
     @Mock
     private BlockCustomerUseCase blockCustomerUseCase;
 
+    @Mock
+    private GetCustomerUseCase getCustomerUseCase;
+
+    @Mock
+    private CustomerRestMapper customerRestMapper;
+
     @BeforeEach
     void setUp() {
         CustomerCommandController controller = new CustomerCommandController(
@@ -59,7 +66,9 @@ class CustomerCommandControllerTest {
                 updateCustomerUseCase,
                 activateCustomerUseCase,
                 deactivateCustomerUseCase,
-                blockCustomerUseCase
+                blockCustomerUseCase,
+                getCustomerUseCase,
+                customerRestMapper
         );
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setMessageConverters(new MappingJackson2HttpMessageConverter())

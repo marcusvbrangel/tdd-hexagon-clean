@@ -51,11 +51,8 @@ public class CustomerRepositoryAdapter implements CustomerRepository {
     }
 
     @Override
-    public void block(Customer customer) {
-        if (customer == null) {
-            throw new IllegalArgumentException("Customer is required");
-        }
-        customerRepository.save(toEntity(customer));
+    public void block(CustomerId customerId) {
+        updateStatus(customerId, CustomerStatus.BLOCKED);
     }
 
     private void updateStatus(CustomerId customerId, CustomerStatus status) {

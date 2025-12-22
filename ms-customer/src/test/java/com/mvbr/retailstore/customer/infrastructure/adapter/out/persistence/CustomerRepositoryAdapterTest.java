@@ -78,15 +78,15 @@ class CustomerRepositoryAdapterTest {
         Customer customer = newCustomer(now);
 
         CustomerRepositoryAdapter adapter = new CustomerRepositoryAdapter(customerJpaRepository);
-        adapter.save(customer);
+        Customer saved = adapter.save(customer);
 
-        Instant later = now.plusSeconds(30);
-        customer.block(later);
-        adapter.block(customer);
+        CustomerId customerId = saved.getCustomerId();
+        Instant beforeBlock = saved.getUpdatedAt();
+        adapter.block(customerId);
 
-        Customer blocked = adapter.findById(customer.getCustomerId()).orElseThrow();
+        Customer blocked = adapter.findById(customerId).orElseThrow();
         assertEquals(CustomerStatus.BLOCKED, blocked.getCustomerStatus());
-        assertEquals(later, blocked.getUpdatedAt());
+        assertFalse(blocked.getUpdatedAt().isBefore(beforeBlock));
     }
 
     private Customer newCustomer(Instant now) {
