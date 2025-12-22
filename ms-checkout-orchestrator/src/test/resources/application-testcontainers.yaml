@@ -1,0 +1,15 @@
+spring:
+  flyway:
+    enabled: true
+
+kafka:
+  topics:
+    autoCreate: true
+    partitions: 1
+    replicationFactor: 1
+
+outbox:
+  relay:
+    enabled: true
+  retention:
+    enabled: false
