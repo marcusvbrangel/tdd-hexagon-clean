@@ -2,6 +2,7 @@ package com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.mapper;
 
 import com.mvbr.retailstore.order.domain.event.OrderPlacedEvent;
 import com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.dto.OrderPlacedEventV1;
+import com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.dto.OrderPlacedEventV1.ItemV1;
 
 public final class OrderPlacedEventMapper {
 
@@ -14,8 +15,12 @@ public final class OrderPlacedEventMapper {
                 event.occurredAt().toString(),
                 event.orderId().value(),
                 event.customerId().value(),
-                event.productIds().stream()
-                        .map(productId -> productId.value())
+                event.items().stream()
+                        .map(i -> new ItemV1(
+                                i.productId(),
+                                i.quantity(),
+                                i.unitPrice()
+                        ))
                         .toList()
         );
     }

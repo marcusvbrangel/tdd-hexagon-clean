@@ -2,11 +2,13 @@ package com.mvbr.retailstore.order.domain.model;
 
 import com.mvbr.retailstore.order.domain.event.DomainEvent;
 import com.mvbr.retailstore.order.domain.event.OrderCanceledEvent;
+import com.mvbr.retailstore.order.domain.event.OrderCompletedEvent;
 import com.mvbr.retailstore.order.domain.event.OrderConfirmedEvent;
 import com.mvbr.retailstore.order.domain.event.OrderPlacedEvent;
 import com.mvbr.retailstore.order.domain.exception.DomainException;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -25,12 +27,8 @@ public class Order {
     }
 
     private Order(Builder builder) {
-        if (builder.orderId == null) {
-            throw new DomainException("Order ID cannot be null");
-        }
-        if (builder.customerId == null) {
-            throw new DomainException("Customer ID cannot be null");
-        }
+        if (builder.orderId == null) throw new DomainException("Order ID cannot be null");
+        if (builder.customerId == null) throw new DomainException("Customer ID cannot be null");
 
         this.orderId = builder.orderId;
         this.customerId = builder.customerId;
@@ -39,31 +37,27 @@ public class Order {
         this.items = new ArrayList<>();
 
         this.discount = Money.zero();
-        this.total = Money.zero(); // calculado a partir de items + discount
+        this.total = Money.zero();
 
         this.events = new ArrayList<>();
-
     }
+
+    // ============================
+    // Comportamentos do domínio
+    // ============================
 
     public void addItem(String productId, int quantity, Money price) {
         ensureDraft();
-
-        // OrderItem já valida productId/quantity/price, então não duplica validação aqui.
         items.add(new OrderItem(productId, quantity, price));
-
         recalculateTotal();
     }
 
     public void applyDiscount(Money discount) {
         ensureDraft();
 
-        if (discount == null) {
-            throw new DomainException("Discount cannot be null");
-        }
+        if (discount == null) throw new DomainException("Discount cannot be null");
 
         Money subtotal = calculateSubtotal();
-
-        // permite desconto == subtotal (total pode ser 0)
         if (discount.isGreaterThan(subtotal)) {
             throw new DomainException("Discount cannot be greater than subtotal");
         }
@@ -72,6 +66,9 @@ public class Order {
         recalculateTotal();
     }
 
+    /**
+     * Coloca o pedido e inicia a saga (via evento OrderPlaced).
+     */
     public void place() {
         ensureStatus(OrderStatus.DRAFT);
 
@@ -79,25 +76,46 @@ public class Order {
             throw new DomainException("Cannot place an order with no items");
         }
 
-        // Total já está sempre recalculado ao adicionar item/aplicar desconto,
-        // mas isso blinda caso alguém mexa no código futuramente.
         recalculateTotal();
 
         this.status = OrderStatus.PLACED;
-        registerEvent(OrderPlacedEvent.of(orderId, customerId, productIds()));
+
+        registerEvent(OrderPlacedEvent.of(orderId, customerId, placedItemsSnapshot()));
     }
 
+    /**
+     * Confirma o pedido quando o orquestrador concluir o checkout com sucesso.
+     */
     public void confirm() {
         ensureStatus(OrderStatus.PLACED);
         this.status = OrderStatus.CONFIRMED;
         registerEvent(OrderConfirmedEvent.of(orderId, customerId));
     }
 
+    /**
+     * Cancela o pedido:
+     * - antes de colocar (DRAFT), ou
+     * - após colocar, quando a saga falhar/expirar (PLACED).
+     */
     public void cancel() {
-        ensureStatus(OrderStatus.DRAFT);
+        ensureStatusIn(OrderStatus.DRAFT, OrderStatus.PLACED);
         this.status = OrderStatus.CANCELED;
         registerEvent(OrderCanceledEvent.of(orderId, customerId));
     }
+
+    /**
+     * Finaliza o pedido por completo (pós-checkout):
+     * pago + estoque efetivado + envio concluído + nota fiscal emitida/enviada.
+     */
+    public void complete() {
+        ensureStatus(OrderStatus.CONFIRMED);
+        this.status = OrderStatus.COMPLETED;
+        registerEvent(OrderCompletedEvent.of(orderId, customerId));
+    }
+
+    // ============================
+    // Cálculos
+    // ============================
 
     private Money calculateSubtotal() {
         return items.stream()
@@ -107,13 +125,13 @@ public class Order {
 
     private void recalculateTotal() {
         Money subtotal = calculateSubtotal();
-
-        // Money.subtract já impede resultado negativo, então isso blinda total < 0.
         Money newTotal = subtotal.subtract(this.discount);
-
-        // opcionalmente: garantimos consistência (nunca null)
         this.total = Objects.requireNonNull(newTotal, "Total cannot be null");
     }
+
+    // ============================
+    // Guards / invariantes
+    // ============================
 
     private void ensureDraft() {
         ensureStatus(OrderStatus.DRAFT);
@@ -124,6 +142,28 @@ public class Order {
             throw new DomainException("Invalid status transition: expected " + expected + " but was " + status);
         }
     }
+
+    private void ensureStatusIn(OrderStatus... allowed) {
+        for (OrderStatus st : allowed) {
+            if (this.status == st) return;
+        }
+        throw new DomainException("Invalid status transition: allowed " + Arrays.toString(allowed) + " but was " + status);
+    }
+
+    private List<OrderPlacedEvent.Item> placedItemsSnapshot() {
+        // Snapshot "de integração": SKU + qty + unitPrice
+        return items.stream()
+                .map(i -> new OrderPlacedEvent.Item(
+                        i.getProductId(),
+                        i.getQuantity(),
+                        i.getPrice().toString()
+                ))
+                .toList();
+    }
+
+    // ============================
+    // Reidratação
+    // ============================
 
     public static Order restore(
             OrderId orderId,
@@ -143,24 +183,22 @@ public class Order {
                 .withCustomerId(customerId)
                 .build();
 
-        // reidratação: inserir itens sem regras de DRAFT
         order.items.addAll(items);
-
         order.discount = discount;
         order.recalculateTotal();
-
-        // status do banco é “fonte da verdade” na reidratação
         order.status = status;
 
         return order;
     }
 
     public void restoreStatusFromPersistence(OrderStatus status) {
-        if (status == null) {
-            throw new DomainException("Status cannot be null");
-        }
+        if (status == null) throw new DomainException("Status cannot be null");
         this.status = status;
     }
+
+    // ============================
+    // Eventos
+    // ============================
 
     public List<DomainEvent> pullEvents() {
         List<DomainEvent> copy = List.copyOf(events);
@@ -168,46 +206,32 @@ public class Order {
         return copy;
     }
 
-    public OrderId getOrderId() {
-        return orderId;
-    }
-
-    public CustomerId getCustomerId() {
-        return customerId;
-    }
-
-    public OrderStatus getStatus() {
-        return status;
-    }
-
-    public List<OrderItem> getItems() {
-        return List.copyOf(items);
-    }
-
-    public Money getDiscount() {
-        return discount;
-    }
-
-    public Money getTotal() {
-        return total;
-    }
-
     private void registerEvent(DomainEvent event) {
-        if (event == null) {
-            throw new DomainException("Event cannot be null");
-        }
+        if (event == null) throw new DomainException("Event cannot be null");
         events.add(event);
     }
 
-    private List<ProductId> productIds() {
-        return items.stream()
-                .map(OrderItem::getProductId)
-                .map(ProductId::new)
-                .toList();
-    }
+    // ============================
+    // Getters
+    // ============================
+
+    public OrderId getOrderId() { return orderId; }
+
+    public CustomerId getCustomerId() { return customerId; }
+
+    public OrderStatus getStatus() { return status; }
+
+    public List<OrderItem> getItems() { return List.copyOf(items); }
+
+    public Money getDiscount() { return discount; }
+
+    public Money getTotal() { return total; }
+
+    // ============================
+    // Builder
+    // ============================
 
     public static class Builder {
-
         private OrderId orderId;
         private CustomerId customerId;
 
@@ -225,39 +249,4 @@ public class Order {
             return new Order(this);
         }
     }
-
-
-    /*
-    ======================================================
-
-    Requisito no domínio:
-
-        Pra isso funcionar bem, seu Order.place() precisa:
-
-        permitir apenas se status == DRAFT
-
-        exigir items não vazio
-
-        setar status = PLACED
-
-        E aí:
-
-        confirm() só funciona se PLACED
-
-        cancel() só funciona se PLACED (ou DRAFT também, se você quiser)
-
-        -----------------------------------------------------------
-        Diagrama de estados / transições:
-
-            DRAFT -> PLACED
-
-            PLACED -> CONFIRMED
-
-            CONFIRMED -> COMPLETED
-
-            DRAFT -> CANCELED
-
-    =====================================================
-     */
-
 }

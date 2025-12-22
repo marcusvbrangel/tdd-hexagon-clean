@@ -14,11 +14,19 @@ public record OrderCanceledEvent(
 ) implements DomainEvent {
 
     public static OrderCanceledEvent of(OrderId orderId, CustomerId customerId) {
-        return new OrderCanceledEvent(UUID.randomUUID().toString(), Instant.now(), orderId, customerId);
+        if (orderId == null) throw new IllegalArgumentException("OrderId cannot be null");
+        if (customerId == null) throw new IllegalArgumentException("CustomerId cannot be null");
+
+        return new OrderCanceledEvent(
+                UUID.randomUUID().toString(),
+                Instant.now(),
+                orderId,
+                customerId
+        );
     }
 
     @Override
     public String eventType() {
-        return "order.canceled";
+        return EventTypes.ORDER_CANCELED;
     }
 }

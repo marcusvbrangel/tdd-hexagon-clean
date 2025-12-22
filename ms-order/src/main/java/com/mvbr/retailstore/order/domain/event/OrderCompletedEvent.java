@@ -4,39 +4,29 @@ import com.mvbr.retailstore.order.domain.model.CustomerId;
 import com.mvbr.retailstore.order.domain.model.OrderId;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
-public record OrderPlacedEvent(
+public record OrderCompletedEvent(
         String eventId,
         Instant occurredAt,
         OrderId orderId,
-        CustomerId customerId,
-        List<Item> items
+        CustomerId customerId
 ) implements DomainEvent {
 
-    public record Item(
-            String productId,
-            int quantity,
-            String unitPrice
-    ) { }
-
-    public static OrderPlacedEvent of(OrderId orderId, CustomerId customerId, List<Item> items) {
+    public static OrderCompletedEvent of(OrderId orderId, CustomerId customerId) {
         if (orderId == null) throw new IllegalArgumentException("OrderId cannot be null");
         if (customerId == null) throw new IllegalArgumentException("CustomerId cannot be null");
-        if (items == null) throw new IllegalArgumentException("Items cannot be null");
 
-        return new OrderPlacedEvent(
+        return new OrderCompletedEvent(
                 UUID.randomUUID().toString(),
                 Instant.now(),
                 orderId,
-                customerId,
-                List.copyOf(items)
+                customerId
         );
     }
 
     @Override
     public String eventType() {
-        return EventTypes.ORDER_PLACED;
+        return EventTypes.ORDER_COMPLETED;
     }
 }

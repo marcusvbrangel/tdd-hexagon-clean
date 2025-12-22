@@ -5,28 +5,34 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mvbr.retailstore.order.application.port.out.EventPublisher;
 import com.mvbr.retailstore.order.domain.event.DomainEvent;
 import com.mvbr.retailstore.order.domain.event.OrderCanceledEvent;
+import com.mvbr.retailstore.order.domain.event.OrderCompletedEvent;
 import com.mvbr.retailstore.order.domain.event.OrderConfirmedEvent;
 import com.mvbr.retailstore.order.domain.event.OrderPlacedEvent;
 import com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.dto.OrderCanceledEventV1;
+import com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.dto.OrderCompletedEventV1;
 import com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.dto.OrderConfirmedEventV1;
 import com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.dto.OrderPlacedEventV1;
 import com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.headers.SagaHeaders;
 import com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.mapper.OrderCanceledEventMapper;
+import com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.mapper.OrderCompletedEventMapper;
 import com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.mapper.OrderConfirmedEventMapper;
 import com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.mapper.OrderPlacedEventMapper;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
+import java.time.Instant;
 
 @Primary
 @Component
 public class OutboxEventPublisherAdapter implements EventPublisher {
 
     private static final String ORDER_AGGREGATE_TYPE = "Order";
-    private static final String ORDER_PLACED_TOPIC = "order.placed";
-    private static final String ORDER_CONFIRMED_TOPIC = "order.confirmed";
-    private static final String ORDER_CANCELED_TOPIC = "order.canceled";
+
+    // Canal (domínio + categoria + versão)
+    private static final String ORDER_EVENTS_TOPIC = "order.events.v1";
+
+    // Versão “lógica” do canal (vai em header x-topic-version)
+    private static final String TOPIC_VERSION = "v1";
 
     private final OutboxJpaRepository outboxRepository;
     private final ObjectMapper objectMapper;
@@ -38,19 +44,22 @@ public class OutboxEventPublisherAdapter implements EventPublisher {
 
     @Override
     public void publish(DomainEvent event) {
-        OutboxMessageJpaEntity message = toOutboxMessage(event);
-        outboxRepository.save(message);
+        outboxRepository.save(toOutboxMessage(event));
     }
 
     private OutboxMessageJpaEntity toOutboxMessage(DomainEvent event) {
-        if (event instanceof OrderPlacedEvent orderPlacedEvent) {
-            return toOrderPlacedOutbox(orderPlacedEvent);
+
+        if (event instanceof OrderPlacedEvent e) {
+            return toOrderPlacedOutbox(e);
         }
-        if (event instanceof OrderConfirmedEvent orderConfirmedEvent) {
-            return toOrderConfirmedOutbox(orderConfirmedEvent);
+        if (event instanceof OrderConfirmedEvent e) {
+            return toOrderConfirmedOutbox(e);
         }
-        if (event instanceof OrderCanceledEvent orderCanceledEvent) {
-            return toOrderCanceledOutbox(orderCanceledEvent);
+        if (event instanceof OrderCanceledEvent e) {
+            return toOrderCanceledOutbox(e);
+        }
+        if (event instanceof OrderCompletedEvent e) {
+            return toOrderCompletedOutbox(e);
         }
 
         throw new IllegalArgumentException("Unsupported event type for outbox: " + event.getClass().getName());
@@ -58,44 +67,80 @@ public class OutboxEventPublisherAdapter implements EventPublisher {
 
     private OutboxMessageJpaEntity toOrderPlacedOutbox(OrderPlacedEvent event) {
         OrderPlacedEventV1 dto = OrderPlacedEventMapper.toDto(event);
-        return buildOutboxMessage(dto.eventId(), dto.orderId(), resolveLogicalEventType(event), ORDER_PLACED_TOPIC,
-                writeValueAsString(dto), event.occurredAt());
+        return buildOutboxMessage(
+                dto.eventId(),
+                dto.orderId(),
+                event.eventType(),
+                ORDER_EVENTS_TOPIC,
+                writeValueAsString(dto),
+                event.occurredAt()
+        );
     }
 
     private OutboxMessageJpaEntity toOrderConfirmedOutbox(OrderConfirmedEvent event) {
         OrderConfirmedEventV1 dto = OrderConfirmedEventMapper.toDto(event);
-        return buildOutboxMessage(dto.eventId(), dto.orderId(), resolveLogicalEventType(event), ORDER_CONFIRMED_TOPIC,
-                writeValueAsString(dto), event.occurredAt());
+        return buildOutboxMessage(
+                dto.eventId(),
+                dto.orderId(),
+                event.eventType(),
+                ORDER_EVENTS_TOPIC,
+                writeValueAsString(dto),
+                event.occurredAt()
+        );
     }
 
     private OutboxMessageJpaEntity toOrderCanceledOutbox(OrderCanceledEvent event) {
         OrderCanceledEventV1 dto = OrderCanceledEventMapper.toDto(event);
-        return buildOutboxMessage(dto.eventId(), dto.orderId(), resolveLogicalEventType(event), ORDER_CANCELED_TOPIC,
-                writeValueAsString(dto), event.occurredAt());
+        return buildOutboxMessage(
+                dto.eventId(),
+                dto.orderId(),
+                event.eventType(),
+                ORDER_EVENTS_TOPIC,
+                writeValueAsString(dto),
+                event.occurredAt()
+        );
+    }
+
+    private OutboxMessageJpaEntity toOrderCompletedOutbox(OrderCompletedEvent event) {
+        OrderCompletedEventV1 dto = OrderCompletedEventMapper.toDto(event);
+        return buildOutboxMessage(
+                dto.eventId(),
+                dto.orderId(),
+                event.eventType(),
+                ORDER_EVENTS_TOPIC,
+                writeValueAsString(dto),
+                event.occurredAt()
+        );
     }
 
     private OutboxMessageJpaEntity buildOutboxMessage(String eventId,
                                                       String aggregateId,
-                                                      String logicalEventType,
+                                                      String eventType,
                                                       String topic,
                                                       String payloadJson,
-                                                      java.time.Instant occurredAt) {
-        String headersJson = writeValueAsString(buildHeaders(eventId, logicalEventType, occurredAt.toString()));
+                                                      Instant occurredAt) {
+
+        String headersJson = writeValueAsString(
+                SagaHeaders.build(
+                        eventId,
+                        eventType,
+                        occurredAt.toString(),
+                        ORDER_AGGREGATE_TYPE,
+                        aggregateId,
+                        TOPIC_VERSION
+                )
+        );
 
         return new OutboxMessageJpaEntity(
                 eventId,
                 ORDER_AGGREGATE_TYPE,
                 aggregateId,
-                logicalEventType,
-                topic,
+                eventType,        // ex: "order.placed"
+                topic,            // ex: "order.events.v1"
                 payloadJson,
                 headersJson,
                 occurredAt
         );
-    }
-
-    private Map<String, String> buildHeaders(String eventId, String eventType, String occurredAt) {
-        return SagaHeaders.build(eventId, eventType, occurredAt);
     }
 
     private String writeValueAsString(Object value) {
@@ -104,13 +149,5 @@ public class OutboxEventPublisherAdapter implements EventPublisher {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Could not serialize value to JSON", e);
         }
-    }
-
-    private String resolveLogicalEventType(DomainEvent event) {
-        String simpleName = event.getClass().getSimpleName();
-        if (simpleName.endsWith("Event")) {
-            return simpleName.substring(0, simpleName.length() - "Event".length());
-        }
-        return simpleName;
     }
 }

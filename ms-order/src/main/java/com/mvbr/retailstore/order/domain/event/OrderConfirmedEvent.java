@@ -14,11 +14,19 @@ public record OrderConfirmedEvent(
 ) implements DomainEvent {
 
     public static OrderConfirmedEvent of(OrderId orderId, CustomerId customerId) {
-        return new OrderConfirmedEvent(UUID.randomUUID().toString(), Instant.now(), orderId, customerId);
+        if (orderId == null) throw new IllegalArgumentException("OrderId cannot be null");
+        if (customerId == null) throw new IllegalArgumentException("CustomerId cannot be null");
+
+        return new OrderConfirmedEvent(
+                UUID.randomUUID().toString(),
+                Instant.now(),
+                orderId,
+                customerId
+        );
     }
 
     @Override
     public String eventType() {
-        return "order.confirmed";
+        return EventTypes.ORDER_CONFIRMED;
     }
 }
