@@ -448,19 +448,68 @@ docker exec -it postgres psql -U postgres -d ms-checkout-orchestrator -c "select
 docker exec -it postgres psql -U postgres -d ms-checkout-orchestrator -c "select order_id, status, step, deadline_at from checkout_saga order by updated_at desc limit 20;"
 ```
 
-### Staging (assumindo Kubernetes)
-Status do deploy:
+### Kubernetes (staging/prod)
+Padrao do time:
+- Namespace: `retail-store`
+- Service: `ms-orchestrator`
+- Deployment: `ms-orchestrator`
+- Deploy: Helm + kubectl, via GitHub Actions
+
+Contexto e namespace:
 ```
-kubectl -n <namespace> get deploy,po -l app=ms-checkout-orchestrator
-kubectl -n <namespace> rollout status deploy/ms-checkout-orchestrator
+kubectl config get-contexts
+kubectl config use-context <context>
+kubectl get ns
 ```
 
-Logs:
+Descobrir recursos (ajuste o filtro conforme seus labels):
 ```
-kubectl -n <namespace> logs -f deploy/ms-checkout-orchestrator
+kubectl -n retail-store get deploy,po,svc | grep -i orchestrator
+kubectl -n retail-store get po -l app=ms-orchestrator -o wide
 ```
 
-Kafka (topicos e grupo):
+Status do deploy e rollout:
+```
+kubectl -n retail-store rollout status deploy/ms-orchestrator
+kubectl -n retail-store describe deploy ms-orchestrator
+```
+
+Eventos recentes do namespace:
+```
+kubectl -n retail-store get events --sort-by=.lastTimestamp | tail -n 30
+```
+
+Logs (tudo e pod especifico):
+```
+kubectl -n retail-store logs -f deploy/ms-orchestrator --tail=200
+kubectl -n retail-store logs -f <pod> --tail=200
+kubectl -n retail-store logs --previous <pod> --tail=200
+```
+
+Debug dentro do pod:
+```
+kubectl -n retail-store exec -it <pod> -- /bin/sh
+kubectl -n retail-store exec -it <pod> -- printenv | grep -E "KAFKA|DATASOURCE|SAGA"
+```
+
+Port-forward (se precisar inspecionar localmente):
+```
+kubectl -n retail-store port-forward svc/ms-orchestrator 8097:8097
+```
+
+Helm (deploys e rollback):
+```
+helm -n retail-store list
+helm -n retail-store history ms-orchestrator
+helm -n retail-store upgrade --install ms-orchestrator <chart> -f <values.yaml>
+helm -n retail-store rollback ms-orchestrator <revision>
+```
+
+GitHub Actions (pista rapida):
+- Pipeline deve executar lint/test e depois `helm upgrade`.
+- Valide o rollout no cluster apos o merge.
+
+Kafka (topicos e grupo, a partir do host com kafka tools):
 ```
 kafka-topics --bootstrap-server <broker> --describe --topic order.events.v1
 kafka-consumer-groups --bootstrap-server <broker> --describe --group ms-checkout-orchestrator
@@ -472,8 +521,17 @@ psql "host=<host> port=5432 dbname=ms-checkout-orchestrator user=<user>" -c "sel
 psql "host=<host> port=5432 dbname=ms-checkout-orchestrator user=<user>" -c "select order_id, status, step, deadline_at from checkout_saga order by updated_at desc limit 20;"
 ```
 
-### Producao (somente leitura por padrao)
-Use os mesmos comandos de staging para diagnostico. Antes de qualquer restart ou deploy, alinhe com o time responsavel.
+Observabilidade (OpenTelemetry + Prometheus + Grafana):
+- Tracing: use `correlationId` e `orderId` como chaves principais.
+- Metrics: verifique dashboards de Kafka lag, retries e backlog de outbox.
+- Logs: priorize `orderId`, `sagaId`, `step` e `eventId` nos filtros.
+
+### Operacoes que mudam estado (somente com aprovacao)
+```
+kubectl -n retail-store rollout restart deploy/ms-orchestrator
+kubectl -n retail-store rollout undo deploy/ms-orchestrator
+kubectl -n retail-store scale deploy/ms-orchestrator --replicas=2
+```
 
 ## Testes
 Unitarios:
