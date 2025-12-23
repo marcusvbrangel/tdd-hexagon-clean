@@ -8,7 +8,10 @@ public record OrderPlacedEventV1(
         String orderId,
         String customerId,
         List<Item> items,
-        String discount
+        String total,
+        String currency,
+        String discount,
+        String paymentMethod
 ) {
     public record Item(String productId, int quantity, String unitPrice) {}
 }

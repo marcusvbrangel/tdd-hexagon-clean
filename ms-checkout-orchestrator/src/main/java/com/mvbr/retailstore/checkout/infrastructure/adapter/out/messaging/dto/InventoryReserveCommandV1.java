@@ -6,7 +6,7 @@ public record InventoryReserveCommandV1(
         String commandId,
         String occurredAt,
         String orderId,
-        List<Line> lines
+        List<Item> items
 ) {
-    public record Line(String sku, int quantity) {}
+    public record Item(String productId, int quantity) {}
 }

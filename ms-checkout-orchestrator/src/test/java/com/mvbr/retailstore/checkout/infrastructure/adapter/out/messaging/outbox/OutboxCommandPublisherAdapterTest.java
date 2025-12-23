@@ -31,7 +31,8 @@ class OutboxCommandPublisherAdapterTest {
         InventoryReleaseCommandV1 payload = new InventoryReleaseCommandV1(
                 "cmd-1",
                 "2025-01-01T00:00:00Z",
-                "order-1"
+                "order-1",
+                null
         );
 
         adapter.publish("inventory.commands.v1", "order-1", "inventory.release", payload, headers);
@@ -45,7 +46,9 @@ class OutboxCommandPublisherAdapterTest {
 
         Map<String, String> storedHeaders = objectMapper.readValue(msg.getHeadersJson(), new TypeReference<>() {});
         assertThat(storedHeaders.get(HeaderNames.EVENT_TYPE)).isEqualTo("inventory.release");
+        assertThat(storedHeaders.get(HeaderNames.COMMAND_TYPE)).isEqualTo("inventory.release");
         assertThat(storedHeaders.get(HeaderNames.EVENT_ID)).isEqualTo("cmd-1");
+        assertThat(storedHeaders.get(HeaderNames.COMMAND_ID)).isEqualTo("cmd-1");
     }
 
     @Test
@@ -60,7 +63,7 @@ class OutboxCommandPublisherAdapterTest {
                 "inventory.commands.v1",
                 "order-1",
                 "inventory.release",
-                new InventoryReleaseCommandV1("cmd-1", "2025-01-01T00:00:00Z", "order-1"),
+                new InventoryReleaseCommandV1("cmd-1", "2025-01-01T00:00:00Z", "order-1", null),
                 headers
         )).isInstanceOf(IllegalArgumentException.class);
 

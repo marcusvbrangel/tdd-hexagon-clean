@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.TopicNames;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.InventoryRejectedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.InventoryReservedEventV1;
+import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.OrderCanceledEventV1;
+import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.OrderCompletedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.OrderPlacedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentAuthorizedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.headers.HeaderNames;
@@ -32,7 +34,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -155,7 +156,7 @@ class CheckoutOrchestratorIntegrationTest {
                     String.class,
                     orderId
             );
-            assertThat(status).isEqualTo("CANCELLED");
+            assertThat(status).isEqualTo("CANCELED");
         });
     }
 
@@ -169,7 +170,10 @@ class CheckoutOrchestratorIntegrationTest {
                         new OrderPlacedEventV1.Item("sku-1", 2, "10.00"),
                         new OrderPlacedEventV1.Item("sku-2", 1, "5.00")
                 ),
-                "2.50"
+                "22.50",
+                "BRL",
+                "2.50",
+                "card"
         );
 
         sendEvent(
@@ -236,23 +240,35 @@ class CheckoutOrchestratorIntegrationTest {
     }
 
     private void sendOrderCompleted(String orderId, String correlationId) throws Exception {
+        OrderCompletedEventV1 payload = new OrderCompletedEventV1(
+                UUID.randomUUID().toString(),
+                Instant.now().toString(),
+                orderId
+        );
+
         sendEvent(
                 TopicNames.ORDER_EVENTS_V1,
                 orderId,
                 "order.completed",
-                UUID.randomUUID().toString(),
-                Map.of(),
+                payload.eventId(),
+                payload,
                 correlationId
         );
     }
 
     private void sendOrderCanceled(String orderId, String correlationId) throws Exception {
+        OrderCanceledEventV1 payload = new OrderCanceledEventV1(
+                UUID.randomUUID().toString(),
+                Instant.now().toString(),
+                orderId
+        );
+
         sendEvent(
                 TopicNames.ORDER_EVENTS_V1,
                 orderId,
                 "order.canceled",
-                UUID.randomUUID().toString(),
-                Map.of(),
+                payload.eventId(),
+                payload,
                 correlationId
         );
     }

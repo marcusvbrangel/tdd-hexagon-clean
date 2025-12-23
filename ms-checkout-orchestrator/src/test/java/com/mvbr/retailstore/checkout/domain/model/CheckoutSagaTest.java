@@ -3,6 +3,9 @@ package com.mvbr.retailstore.checkout.domain.model;
 import com.mvbr.retailstore.checkout.domain.exception.SagaDomainException;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -20,25 +23,47 @@ class CheckoutSagaTest {
     }
 
     @Test
-    void orderPlaced_moves_to_inventory_reserve_and_sets_fields() {
+    void orderPlaced_moves_to_wait_inventory_and_sets_fields() {
         CheckoutSaga saga = CheckoutSaga.start("order-1", "corr-1");
 
-        saga.onOrderPlaced("cust-1", "17.50", "USD");
+        saga.onOrderPlaced(
+                "cust-1",
+                "17.50",
+                "USD",
+                "pix",
+                List.of(new CheckoutSagaItem("sku-1", 1)),
+                Instant.now().plusSeconds(30)
+        );
 
-        assertThat(saga.getStep()).isEqualTo(SagaStep.INVENTORY_RESERVE_PENDING);
+        assertThat(saga.getStep()).isEqualTo(SagaStep.WAIT_INVENTORY);
         assertThat(saga.getCustomerId()).isEqualTo("cust-1");
         assertThat(saga.getAmount()).isEqualTo("17.50");
         assertThat(saga.getCurrency()).isEqualTo("USD");
+        assertThat(saga.getPaymentMethod()).isEqualTo("pix");
     }
 
     @Test
     void orderPlaced_ignored_when_not_started() {
         CheckoutSaga saga = CheckoutSaga.start("order-1", "corr-1");
 
-        saga.onOrderPlaced("cust-1", "10.00", "BRL");
-        saga.onOrderPlaced("cust-2", "99.00", "USD");
+        saga.onOrderPlaced(
+                "cust-1",
+                "10.00",
+                "BRL",
+                null,
+                List.of(new CheckoutSagaItem("sku-1", 1)),
+                Instant.now().plusSeconds(30)
+        );
+        saga.onOrderPlaced(
+                "cust-2",
+                "99.00",
+                "USD",
+                null,
+                List.of(new CheckoutSagaItem("sku-2", 1)),
+                Instant.now().plusSeconds(30)
+        );
 
-        assertThat(saga.getStep()).isEqualTo(SagaStep.INVENTORY_RESERVE_PENDING);
+        assertThat(saga.getStep()).isEqualTo(SagaStep.WAIT_INVENTORY);
         assertThat(saga.getCustomerId()).isEqualTo("cust-1");
         assertThat(saga.getAmount()).isEqualTo("10.00");
         assertThat(saga.getCurrency()).isEqualTo("BRL");
@@ -48,7 +73,7 @@ class CheckoutSagaTest {
     void inventoryReserved_requires_expected_step() {
         CheckoutSaga saga = CheckoutSaga.start("order-1", "corr-1");
 
-        assertThatThrownBy(saga::onInventoryReserved)
+        assertThatThrownBy(() -> saga.onInventoryReserved(Instant.now()))
                 .isInstanceOf(SagaDomainException.class)
                 .hasMessageContaining("Invalid step transition");
     }
@@ -57,9 +82,16 @@ class CheckoutSagaTest {
     void happyPath_completes() {
         CheckoutSaga saga = CheckoutSaga.start("order-1", "corr-1");
 
-        saga.onOrderPlaced("cust-1", "10.00", "BRL");
-        saga.onInventoryReserved();
-        saga.onPaymentAuthorized();
+        saga.onOrderPlaced(
+                "cust-1",
+                "10.00",
+                "BRL",
+                null,
+                List.of(new CheckoutSagaItem("sku-1", 1)),
+                Instant.now().plusSeconds(30)
+        );
+        saga.onInventoryReserved(Instant.now().plusSeconds(120));
+        saga.onPaymentAuthorized(Instant.now().plusSeconds(60));
         saga.markOrderCompleted();
 
         assertThat(saga.getStatus()).isEqualTo(SagaStatus.COMPLETED);
@@ -68,36 +100,39 @@ class CheckoutSagaTest {
     }
 
     @Test
-    void paymentDeclined_compensates_and_completes_when_release_and_cancel_arrive() {
+    void paymentDeclined_marks_canceled() {
         CheckoutSaga saga = CheckoutSaga.start("order-1", "corr-1");
 
-        saga.onOrderPlaced("cust-1", "10.00", "BRL");
-        saga.onInventoryReserved();
-        saga.onPaymentDeclined();
+        saga.onOrderPlaced(
+                "cust-1",
+                "10.00",
+                "BRL",
+                null,
+                List.of(new CheckoutSagaItem("sku-1", 1)),
+                Instant.now().plusSeconds(30)
+        );
+        saga.onInventoryReserved(Instant.now().plusSeconds(120));
+        saga.onPaymentDeclined("PAYMENT_DECLINED");
 
-        assertThat(saga.getStatus()).isEqualTo(SagaStatus.COMPENSATING);
-        assertThat(saga.getStep()).isEqualTo(SagaStep.COMPENSATE_INVENTORY_RELEASE_PENDING);
-
-        saga.markOrderCanceled();
-        assertThat(saga.getStep()).isEqualTo(SagaStep.WAITING_COMPENSATIONS);
-
-        saga.markInventoryReleased();
-        assertThat(saga.getStatus()).isEqualTo(SagaStatus.CANCELLED);
+        assertThat(saga.getStatus()).isEqualTo(SagaStatus.CANCELED);
         assertThat(saga.getStep()).isEqualTo(SagaStep.DONE);
     }
 
     @Test
-    void inventoryRejected_only_needs_order_cancel_to_finish() {
+    void inventoryRejected_marks_canceled() {
         CheckoutSaga saga = CheckoutSaga.start("order-1", "corr-1");
 
-        saga.onOrderPlaced("cust-1", "10.00", "BRL");
-        saga.onInventoryRejected();
+        saga.onOrderPlaced(
+                "cust-1",
+                "10.00",
+                "BRL",
+                null,
+                List.of(new CheckoutSagaItem("sku-1", 1)),
+                Instant.now().plusSeconds(30)
+        );
+        saga.onInventoryRejected("INVENTORY_REJECTED");
 
-        assertThat(saga.getStatus()).isEqualTo(SagaStatus.COMPENSATING);
-        assertThat(saga.getStep()).isEqualTo(SagaStep.COMPENSATE_ORDER_CANCEL_PENDING);
-
-        saga.markOrderCanceled();
-        assertThat(saga.getStatus()).isEqualTo(SagaStatus.CANCELLED);
+        assertThat(saga.getStatus()).isEqualTo(SagaStatus.CANCELED);
         assertThat(saga.getStep()).isEqualTo(SagaStep.DONE);
     }
 }

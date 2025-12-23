@@ -1,6 +1,6 @@
 package com.mvbr.retailstore.checkout.infrastructure.adapter.in.messaging;
 
-import com.mvbr.retailstore.checkout.application.service.CheckoutSagaService;
+import com.mvbr.retailstore.checkout.application.service.CheckoutSagaEngine;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.in.messaging.envelope.EventEnvelope;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.TopicNames;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -14,10 +14,10 @@ public class CheckoutEventsConsumer {
 
     private static final Logger log = Logger.getLogger(CheckoutEventsConsumer.class.getName());
 
-    private final CheckoutSagaService sagaService;
+    private final CheckoutSagaEngine sagaEngine;
 
-    public CheckoutEventsConsumer(CheckoutSagaService sagaService) {
-        this.sagaService = sagaService;
+    public CheckoutEventsConsumer(CheckoutSagaEngine sagaEngine) {
+        this.sagaEngine = sagaEngine;
     }
 
     @KafkaListener(
@@ -40,6 +40,6 @@ public class CheckoutEventsConsumer {
             return;
         }
 
-        sagaService.handle(env);
+        sagaEngine.handle(env);
     }
 }

@@ -31,11 +31,13 @@ public class OutboxCommandPublisherAdapter implements CommandPublisher {
 
         Map<String, String> merged = new LinkedHashMap<>(headers);
         merged.put(HeaderNames.EVENT_TYPE, commandType);
+        merged.put(HeaderNames.COMMAND_TYPE, commandType);
 
         String eventId = merged.get(HeaderNames.EVENT_ID);
         if (eventId == null || eventId.isBlank()) {
             throw new IllegalArgumentException("headers must contain x-event-id");
         }
+        merged.putIfAbsent(HeaderNames.COMMAND_ID, eventId);
 
         String headersJson = write(merged);
 

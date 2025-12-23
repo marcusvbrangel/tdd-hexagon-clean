@@ -4,6 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
@@ -46,6 +47,13 @@ public class CheckoutSagaJpaEntity {
     @Column(name = "currency", length = 8)
     private String currency;
 
+    @Column(name = "payment_method", length = 64)
+    private String paymentMethod;
+
+    @Lob
+    @Column(name = "items_json")
+    private String itemsJson;
+
     @Column(name = "order_completed", nullable = false)
     private boolean orderCompleted;
 
@@ -54,6 +62,24 @@ public class CheckoutSagaJpaEntity {
 
     @Column(name = "order_canceled", nullable = false)
     private boolean orderCanceled;
+
+    @Column(name = "deadline_at")
+    private Instant deadlineAt;
+
+    @Column(name = "attempts_inventory", nullable = false)
+    private int attemptsInventory;
+
+    @Column(name = "attempts_payment", nullable = false)
+    private int attemptsPayment;
+
+    @Column(name = "attempts_order_completion", nullable = false)
+    private int attemptsOrderCompletion;
+
+    @Column(name = "last_error", length = 512)
+    private String lastError;
+
+    @Column(name = "last_event_id", length = 128)
+    private String lastEventId;
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
@@ -79,12 +105,28 @@ public class CheckoutSagaJpaEntity {
     public void setAmount(String amount) { this.amount = amount; }
     public String getCurrency() { return currency; }
     public void setCurrency(String currency) { this.currency = currency; }
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+    public String getItemsJson() { return itemsJson; }
+    public void setItemsJson(String itemsJson) { this.itemsJson = itemsJson; }
     public boolean isOrderCompleted() { return orderCompleted; }
     public void setOrderCompleted(boolean orderCompleted) { this.orderCompleted = orderCompleted; }
     public boolean isInventoryReleased() { return inventoryReleased; }
     public void setInventoryReleased(boolean inventoryReleased) { this.inventoryReleased = inventoryReleased; }
     public boolean isOrderCanceled() { return orderCanceled; }
     public void setOrderCanceled(boolean orderCanceled) { this.orderCanceled = orderCanceled; }
+    public Instant getDeadlineAt() { return deadlineAt; }
+    public void setDeadlineAt(Instant deadlineAt) { this.deadlineAt = deadlineAt; }
+    public int getAttemptsInventory() { return attemptsInventory; }
+    public void setAttemptsInventory(int attemptsInventory) { this.attemptsInventory = attemptsInventory; }
+    public int getAttemptsPayment() { return attemptsPayment; }
+    public void setAttemptsPayment(int attemptsPayment) { this.attemptsPayment = attemptsPayment; }
+    public int getAttemptsOrderCompletion() { return attemptsOrderCompletion; }
+    public void setAttemptsOrderCompletion(int attemptsOrderCompletion) { this.attemptsOrderCompletion = attemptsOrderCompletion; }
+    public String getLastError() { return lastError; }
+    public void setLastError(String lastError) { this.lastError = lastError; }
+    public String getLastEventId() { return lastEventId; }
+    public void setLastEventId(String lastEventId) { this.lastEventId = lastEventId; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

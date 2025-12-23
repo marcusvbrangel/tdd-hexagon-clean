@@ -22,6 +22,7 @@ class SagaHeadersTest {
         );
 
         assertThat(headers.get(HeaderNames.EVENT_ID)).isNotBlank();
+        assertThat(headers.get(HeaderNames.COMMAND_ID)).isNotBlank();
         assertThat(headers.get(HeaderNames.OCCURRED_AT)).isNotBlank();
         assertThat(headers.get(HeaderNames.PRODUCER)).isEqualTo("ms-checkout-orchestrator");
         assertThat(headers.get(HeaderNames.SCHEMA_VERSION)).isEqualTo("v1");
@@ -50,6 +51,7 @@ class SagaHeadersTest {
         );
 
         assertThat(headers.get(HeaderNames.EVENT_ID)).isEqualTo("cmd-1");
+        assertThat(headers.get(HeaderNames.COMMAND_ID)).isEqualTo("cmd-1");
         assertThat(headers.get(HeaderNames.CORRELATION_ID)).isEqualTo("corr-1");
         assertThat(headers.get(HeaderNames.CAUSATION_ID)).isEqualTo("cause-1");
     }

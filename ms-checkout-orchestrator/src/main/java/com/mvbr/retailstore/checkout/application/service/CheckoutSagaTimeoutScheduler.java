@@ -1,0 +1,106 @@
+package com.mvbr.retailstore.checkout.application.service;
+
+import com.mvbr.retailstore.checkout.application.port.out.CheckoutSagaRepository;
+import com.mvbr.retailstore.checkout.config.SagaProperties;
+import com.mvbr.retailstore.checkout.domain.model.CheckoutSaga;
+import com.mvbr.retailstore.checkout.domain.model.SagaStep;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.logging.Logger;
+
+@Component
+public class CheckoutSagaTimeoutScheduler {
+
+    private static final Logger log = Logger.getLogger(CheckoutSagaTimeoutScheduler.class.getName());
+
+    private static final String REASON_INVENTORY_TIMEOUT = "INVENTORY_TIMEOUT";
+    private static final String REASON_PAYMENT_TIMEOUT = "PAYMENT_TIMEOUT";
+    private static final String REASON_ORDER_TIMEOUT = "ORDER_TIMEOUT";
+
+    private final CheckoutSagaRepository sagaRepository;
+    private final CheckoutSagaCommandSender commandSender;
+    private final SagaProperties sagaProperties;
+
+    public CheckoutSagaTimeoutScheduler(CheckoutSagaRepository sagaRepository,
+                                        CheckoutSagaCommandSender commandSender,
+                                        SagaProperties sagaProperties) {
+        this.sagaRepository = sagaRepository;
+        this.commandSender = commandSender;
+        this.sagaProperties = sagaProperties;
+    }
+
+    @Scheduled(fixedDelayString = "${saga.timeouts.scanFixedDelayMs:5000}")
+    @Transactional
+    public void tick() {
+        Instant now = Instant.now();
+        List<CheckoutSaga> timedOut = sagaRepository.findTimedOut(now);
+        if (!timedOut.isEmpty()) {
+            log.info("CheckoutSagaTimeoutScheduler tick - due sagas: " + timedOut.size());
+        }
+        for (CheckoutSaga saga : timedOut) {
+            handleTimeout(saga);
+        }
+    }
+
+    private void handleTimeout(CheckoutSaga saga) {
+        String causationId = Optional.ofNullable(saga.getLastEventId()).orElse(saga.getSagaId());
+        switch (saga.getStep()) {
+            case WAIT_INVENTORY -> handleInventoryTimeout(saga, causationId);
+            case WAIT_PAYMENT -> handlePaymentTimeout(saga, causationId);
+            case WAIT_ORDER_COMPLETION -> handleOrderCompletionTimeout(saga, causationId);
+            default -> { }
+        }
+    }
+
+    private void handleInventoryTimeout(CheckoutSaga saga, String causationId) {
+        int maxRetries = sagaProperties.getRetries().getInventoryMax();
+        if (saga.getAttemptsInventory() < maxRetries) {
+            saga.scheduleInventoryRetry(deadlineAfterSeconds(sagaProperties.getTimeouts().getInventorySeconds()));
+            sagaRepository.save(saga);
+            commandSender.sendInventoryReserve(saga, causationId, SagaStep.WAIT_INVENTORY.name());
+            return;
+        }
+
+        saga.onInventoryRejected(REASON_INVENTORY_TIMEOUT);
+        sagaRepository.save(saga);
+        commandSender.sendOrderCancel(saga, causationId, SagaStep.COMPENSATING.name(), REASON_INVENTORY_TIMEOUT);
+    }
+
+    private void handlePaymentTimeout(CheckoutSaga saga, String causationId) {
+        int maxRetries = sagaProperties.getRetries().getPaymentMax();
+        if (saga.getAttemptsPayment() < maxRetries) {
+            saga.schedulePaymentRetry(deadlineAfterSeconds(sagaProperties.getTimeouts().getPaymentSeconds()));
+            sagaRepository.save(saga);
+            commandSender.sendPaymentAuthorize(saga, causationId, SagaStep.WAIT_PAYMENT.name());
+            return;
+        }
+
+        saga.onPaymentDeclined(REASON_PAYMENT_TIMEOUT);
+        sagaRepository.save(saga);
+        commandSender.sendInventoryRelease(saga, causationId, SagaStep.COMPENSATING.name());
+        commandSender.sendOrderCancel(saga, causationId, SagaStep.COMPENSATING.name(), REASON_PAYMENT_TIMEOUT);
+    }
+
+    private void handleOrderCompletionTimeout(CheckoutSaga saga, String causationId) {
+        int maxRetries = sagaProperties.getRetries().getOrderCompleteMax();
+        if (saga.getAttemptsOrderCompletion() < maxRetries) {
+            saga.scheduleOrderCompletionRetry(deadlineAfterSeconds(
+                    sagaProperties.getTimeouts().getOrderCompleteSeconds()));
+            sagaRepository.save(saga);
+            commandSender.sendOrderComplete(saga, causationId, SagaStep.WAIT_ORDER_COMPLETION.name());
+            return;
+        }
+
+        saga.markOrderCanceled(REASON_ORDER_TIMEOUT);
+        sagaRepository.save(saga);
+    }
+
+    private Instant deadlineAfterSeconds(long seconds) {
+        return Instant.now().plusSeconds(seconds);
+    }
+}

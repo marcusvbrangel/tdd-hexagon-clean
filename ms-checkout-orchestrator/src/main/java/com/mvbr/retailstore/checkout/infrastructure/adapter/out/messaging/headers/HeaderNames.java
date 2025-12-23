@@ -6,6 +6,8 @@ public final class HeaderNames {
 
     public static final String EVENT_ID = "x-event-id";
     public static final String EVENT_TYPE = "x-event-type";
+    public static final String COMMAND_ID = "x-command-id";
+    public static final String COMMAND_TYPE = "x-command-type";
     public static final String OCCURRED_AT = "x-occurred-at";
 
     public static final String PRODUCER = "x-producer";

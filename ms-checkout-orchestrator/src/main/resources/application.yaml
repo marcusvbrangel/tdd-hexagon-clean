@@ -82,6 +82,20 @@ outbox:
     cron: ${OUTBOX_RETENTION_CRON:0 0 3 * * *}
 
 # =============================================================================================
+# SAGA SETTINGS
+# =============================================================================================
+saga:
+  timeouts:
+    inventorySeconds: ${SAGA_TIMEOUT_INVENTORY_SECONDS:30}
+    paymentSeconds: ${SAGA_TIMEOUT_PAYMENT_SECONDS:120}
+    orderCompleteSeconds: ${SAGA_TIMEOUT_ORDER_COMPLETE_SECONDS:60}
+    scanFixedDelayMs: ${SAGA_TIMEOUT_SCAN_FIXED_DELAY_MS:5000}
+  retries:
+    inventoryMax: ${SAGA_RETRIES_INVENTORY_MAX:2}
+    paymentMax: ${SAGA_RETRIES_PAYMENT_MAX:3}
+    orderCompleteMax: ${SAGA_RETRIES_ORDER_COMPLETE_MAX:2}
+
+# =============================================================================================
 # LOGGING
 # =============================================================================================
 logging:

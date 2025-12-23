@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mvbr.retailstore.checkout.application.port.out.CheckoutSagaRepository;
 import com.mvbr.retailstore.checkout.application.port.out.CommandPublisher;
 import com.mvbr.retailstore.checkout.application.port.out.ProcessedEventRepository;
+import com.mvbr.retailstore.checkout.config.SagaProperties;
 import com.mvbr.retailstore.checkout.domain.model.CheckoutSaga;
 import com.mvbr.retailstore.checkout.domain.model.SagaStatus;
 import com.mvbr.retailstore.checkout.domain.model.SagaStep;
@@ -11,6 +12,7 @@ import com.mvbr.retailstore.checkout.infrastructure.adapter.in.messaging.envelop
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.TopicNames;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.InventoryRejectedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.InventoryReservedEventV1;
+import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.OrderCompletedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.OrderPlacedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentAuthorizedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentDeclinedEventV1;
@@ -25,9 +27,10 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class CheckoutSagaServiceTest {
+class CheckoutSagaEngineTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final SagaProperties sagaProperties = new SagaProperties();
 
     @Test
     void handle_orderPlaced_creates_saga_and_publishes_inventory_reserve() throws Exception {
@@ -35,20 +38,15 @@ class CheckoutSagaServiceTest {
         InMemoryProcessedEventRepository processedEventRepository = new InMemoryProcessedEventRepository();
         CapturingCommandPublisher publisher = new CapturingCommandPublisher();
 
-        CheckoutSagaService service = new CheckoutSagaService(
-                sagaRepository,
-                processedEventRepository,
-                publisher,
-                objectMapper
-        );
+        CheckoutSagaEngine engine = newEngine(sagaRepository, processedEventRepository, publisher);
 
         OrderPlacedEventV1 payload = orderPlacedEvent("evt-1", "order-1");
         EventEnvelope env = envelope("order.placed", "evt-1", "order-1", payload, "");
 
-        service.handle(env);
+        engine.handle(env);
 
         CheckoutSaga saga = sagaRepository.get("order-1");
-        assertThat(saga.getStep()).isEqualTo(SagaStep.INVENTORY_RESERVE_PENDING);
+        assertThat(saga.getStep()).isEqualTo(SagaStep.WAIT_INVENTORY);
         assertThat(saga.getAmount()).isEqualTo("22.50");
         assertThat(saga.getCurrency()).isEqualTo("BRL");
         assertThat(saga.getCorrelationId()).isEqualTo("order-1");
@@ -59,11 +57,13 @@ class CheckoutSagaServiceTest {
         assertThat(command.key()).isEqualTo("order-1");
         assertThat(command.commandType()).isEqualTo("inventory.reserve");
 
-        assertThat(command.headers().get(HeaderNames.EVENT_ID))
-                .isEqualTo(((com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.InventoryReserveCommandV1) command.payload()).commandId());
+        var payloadCmd = (com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.InventoryReserveCommandV1)
+                command.payload();
+        assertThat(command.headers().get(HeaderNames.EVENT_ID)).isEqualTo(payloadCmd.commandId());
+        assertThat(command.headers().get(HeaderNames.COMMAND_ID)).isEqualTo(payloadCmd.commandId());
         assertThat(command.headers().get(HeaderNames.CORRELATION_ID)).isEqualTo("order-1");
         assertThat(command.headers().get(HeaderNames.CAUSATION_ID)).isEqualTo("evt-1");
-        assertThat(command.headers().get(HeaderNames.SAGA_STEP)).isEqualTo("INVENTORY_RESERVE_PENDING");
+        assertThat(command.headers().get(HeaderNames.SAGA_STEP)).isEqualTo("WAIT_INVENTORY");
 
         assertThat(processedEventRepository.count()).isEqualTo(1);
         assertThat(processedEventRepository.contains("evt-1")).isTrue();
@@ -75,15 +75,10 @@ class CheckoutSagaServiceTest {
         InMemoryProcessedEventRepository processedEventRepository = new InMemoryProcessedEventRepository();
         CapturingCommandPublisher publisher = new CapturingCommandPublisher();
 
-        CheckoutSagaService service = new CheckoutSagaService(
-                sagaRepository,
-                processedEventRepository,
-                publisher,
-                objectMapper
-        );
+        CheckoutSagaEngine engine = newEngine(sagaRepository, processedEventRepository, publisher);
 
-        service.handle(envelope("order.placed", "evt-1", "order-1", orderPlacedEvent("evt-1", "order-1"), ""));
-        service.handle(envelope("inventory.reserved", "evt-2", "order-1",
+        engine.handle(envelope("order.placed", "evt-1", "order-1", orderPlacedEvent("evt-1", "order-1"), "corr-1"));
+        engine.handle(envelope("inventory.reserved", "evt-2", "order-1",
                 new InventoryReservedEventV1("evt-2", "2025-01-01T00:00:00Z", "order-1"), "corr-1"));
 
         assertThat(publisher.published()).hasSize(2);
@@ -97,25 +92,22 @@ class CheckoutSagaServiceTest {
         assertThat(payload.amount()).isEqualTo("22.50");
         assertThat(payload.currency()).isEqualTo("BRL");
         assertThat(command.headers().get(HeaderNames.EVENT_ID)).isEqualTo(payload.commandId());
+        assertThat(command.headers().get(HeaderNames.CAUSATION_ID)).isEqualTo("evt-2");
+        assertThat(command.headers().get(HeaderNames.CORRELATION_ID)).isEqualTo("corr-1");
     }
 
     @Test
-    void handle_paymentDeclined_publishes_release_and_cancel() throws Exception {
+    void handle_paymentDeclined_publishes_release_and_cancel_and_marks_canceled() throws Exception {
         InMemorySagaRepository sagaRepository = new InMemorySagaRepository();
         InMemoryProcessedEventRepository processedEventRepository = new InMemoryProcessedEventRepository();
         CapturingCommandPublisher publisher = new CapturingCommandPublisher();
 
-        CheckoutSagaService service = new CheckoutSagaService(
-                sagaRepository,
-                processedEventRepository,
-                publisher,
-                objectMapper
-        );
+        CheckoutSagaEngine engine = newEngine(sagaRepository, processedEventRepository, publisher);
 
-        service.handle(envelope("order.placed", "evt-1", "order-1", orderPlacedEvent("evt-1", "order-1"), ""));
-        service.handle(envelope("inventory.reserved", "evt-2", "order-1",
+        engine.handle(envelope("order.placed", "evt-1", "order-1", orderPlacedEvent("evt-1", "order-1"), ""));
+        engine.handle(envelope("inventory.reserved", "evt-2", "order-1",
                 new InventoryReservedEventV1("evt-2", "2025-01-01T00:00:00Z", "order-1"), "corr-1"));
-        service.handle(envelope("payment.declined", "evt-3", "order-1",
+        engine.handle(envelope("payment.declined", "evt-3", "order-1",
                 new PaymentDeclinedEventV1("evt-3", "2025-01-01T00:00:00Z", "order-1", "card_declined"), "corr-1"));
 
         assertThat(publisher.published()).hasSize(4);
@@ -126,8 +118,8 @@ class CheckoutSagaServiceTest {
         assertThat(cancel.commandType()).isEqualTo("order.cancel");
 
         CheckoutSaga saga = sagaRepository.get("order-1");
-        assertThat(saga.getStatus()).isEqualTo(SagaStatus.COMPENSATING);
-        assertThat(saga.getStep()).isEqualTo(SagaStep.COMPENSATE_INVENTORY_RELEASE_PENDING);
+        assertThat(saga.getStatus()).isEqualTo(SagaStatus.CANCELED);
+        assertThat(saga.getStep()).isEqualTo(SagaStep.DONE);
     }
 
     @Test
@@ -136,19 +128,15 @@ class CheckoutSagaServiceTest {
         InMemoryProcessedEventRepository processedEventRepository = new InMemoryProcessedEventRepository();
         CapturingCommandPublisher publisher = new CapturingCommandPublisher();
 
-        CheckoutSagaService service = new CheckoutSagaService(
-                sagaRepository,
-                processedEventRepository,
-                publisher,
-                objectMapper
-        );
+        CheckoutSagaEngine engine = newEngine(sagaRepository, processedEventRepository, publisher);
 
-        service.handle(envelope("order.placed", "evt-1", "order-1", orderPlacedEvent("evt-1", "order-1"), ""));
-        service.handle(envelope("inventory.reserved", "evt-2", "order-1",
+        engine.handle(envelope("order.placed", "evt-1", "order-1", orderPlacedEvent("evt-1", "order-1"), ""));
+        engine.handle(envelope("inventory.reserved", "evt-2", "order-1",
                 new InventoryReservedEventV1("evt-2", "2025-01-01T00:00:00Z", "order-1"), "corr-1"));
-        service.handle(envelope("payment.authorized", "evt-3", "order-1",
+        engine.handle(envelope("payment.authorized", "evt-3", "order-1",
                 new PaymentAuthorizedEventV1("evt-3", "2025-01-01T00:00:00Z", "order-1", "pay-1"), "corr-1"));
-        service.handle(envelope("order.completed", "evt-4", "order-1", Map.of(), "corr-1"));
+        engine.handle(envelope("order.completed", "evt-4", "order-1",
+                new OrderCompletedEventV1("evt-4", "2025-01-01T00:00:00Z", "order-1"), "corr-1"));
 
         assertThat(publisher.published()).hasSize(3);
         CheckoutSaga saga = sagaRepository.get("order-1");
@@ -162,17 +150,12 @@ class CheckoutSagaServiceTest {
         InMemoryProcessedEventRepository processedEventRepository = new InMemoryProcessedEventRepository();
         CapturingCommandPublisher publisher = new CapturingCommandPublisher();
 
-        CheckoutSagaService service = new CheckoutSagaService(
-                sagaRepository,
-                processedEventRepository,
-                publisher,
-                objectMapper
-        );
+        CheckoutSagaEngine engine = newEngine(sagaRepository, processedEventRepository, publisher);
 
         EventEnvelope env = envelope("order.placed", "evt-1", "order-1", orderPlacedEvent("evt-1", "order-1"), "");
 
-        service.handle(env);
-        service.handle(env);
+        engine.handle(env);
+        engine.handle(env);
 
         assertThat(publisher.published()).hasSize(1);
         assertThat(processedEventRepository.count()).isEqualTo(1);
@@ -184,45 +167,93 @@ class CheckoutSagaServiceTest {
         InMemoryProcessedEventRepository processedEventRepository = new InMemoryProcessedEventRepository();
         CapturingCommandPublisher publisher = new CapturingCommandPublisher();
 
-        CheckoutSagaService service = new CheckoutSagaService(
-                sagaRepository,
-                processedEventRepository,
-                publisher,
-                objectMapper
-        );
+        CheckoutSagaEngine engine = newEngine(sagaRepository, processedEventRepository, publisher);
 
         EventEnvelope env = envelope("order.placed", "", "order-1", orderPlacedEvent("evt-1", "order-1"), "");
-        service.handle(env);
+        engine.handle(env);
 
         assertThat(publisher.published()).isEmpty();
         assertThat(processedEventRepository.count()).isZero();
     }
 
     @Test
-    void handle_inventoryRejected_publishes_only_order_cancel_and_finishes_after_order_canceled() throws Exception {
+    void handle_inventoryRejected_publishes_cancel_and_marks_canceled() throws Exception {
         InMemorySagaRepository sagaRepository = new InMemorySagaRepository();
         InMemoryProcessedEventRepository processedEventRepository = new InMemoryProcessedEventRepository();
         CapturingCommandPublisher publisher = new CapturingCommandPublisher();
 
-        CheckoutSagaService service = new CheckoutSagaService(
-                sagaRepository,
-                processedEventRepository,
-                publisher,
-                objectMapper
-        );
+        CheckoutSagaEngine engine = newEngine(sagaRepository, processedEventRepository, publisher);
 
-        service.handle(envelope("order.placed", "evt-1", "order-1", orderPlacedEvent("evt-1", "order-1"), ""));
-        service.handle(envelope("inventory.rejected", "evt-2", "order-1",
+        engine.handle(envelope("order.placed", "evt-1", "order-1", orderPlacedEvent("evt-1", "order-1"), ""));
+        engine.handle(envelope("inventory.rejected", "evt-2", "order-1",
                 new InventoryRejectedEventV1("evt-2", "2025-01-01T00:00:00Z", "order-1", "out_of_stock"), "corr-1"));
 
         assertThat(publisher.published()).hasSize(2);
         PublishedCommand cancel = publisher.published().getLast();
         assertThat(cancel.commandType()).isEqualTo("order.cancel");
 
-        service.handle(envelope("order.canceled", "evt-3", "order-1", Map.of(), "corr-1"));
         CheckoutSaga saga = sagaRepository.get("order-1");
-        assertThat(saga.getStatus()).isEqualTo(SagaStatus.CANCELLED);
+        assertThat(saga.getStatus()).isEqualTo(SagaStatus.CANCELED);
         assertThat(saga.getStep()).isEqualTo(SagaStep.DONE);
+    }
+
+    @Test
+    void handle_out_of_order_event_is_ignored() throws Exception {
+        InMemorySagaRepository sagaRepository = new InMemorySagaRepository();
+        InMemoryProcessedEventRepository processedEventRepository = new InMemoryProcessedEventRepository();
+        CapturingCommandPublisher publisher = new CapturingCommandPublisher();
+
+        CheckoutSagaEngine engine = newEngine(sagaRepository, processedEventRepository, publisher);
+
+        engine.handle(envelope("order.placed", "evt-1", "order-1", orderPlacedEvent("evt-1", "order-1"), ""));
+        engine.handle(envelope("payment.authorized", "evt-2", "order-1",
+                new PaymentAuthorizedEventV1("evt-2", "2025-01-01T00:00:00Z", "order-1", "pay-1"), "corr-1"));
+
+        assertThat(publisher.published()).hasSize(1);
+        assertThat(publisher.published().getFirst().commandType()).isEqualTo("inventory.reserve");
+    }
+
+    @Test
+    void handle_orderPlaced_missing_total_currency_uses_fallback() throws Exception {
+        InMemorySagaRepository sagaRepository = new InMemorySagaRepository();
+        InMemoryProcessedEventRepository processedEventRepository = new InMemoryProcessedEventRepository();
+        CapturingCommandPublisher publisher = new CapturingCommandPublisher();
+
+        CheckoutSagaEngine engine = newEngine(sagaRepository, processedEventRepository, publisher);
+
+        OrderPlacedEventV1 payload = new OrderPlacedEventV1(
+                "evt-1",
+                "2025-01-01T00:00:00Z",
+                "order-1",
+                "cust-1",
+                List.of(
+                        new OrderPlacedEventV1.Item("sku-1", 2, "10.00"),
+                        new OrderPlacedEventV1.Item("sku-2", 1, "5.00")
+                ),
+                null,
+                null,
+                "2.50",
+                null
+        );
+
+        engine.handle(envelope("order.placed", "evt-1", "order-1", payload, ""));
+
+        CheckoutSaga saga = sagaRepository.get("order-1");
+        assertThat(saga.getAmount()).isEqualTo("22.50");
+        assertThat(saga.getCurrency()).isEqualTo("BRL");
+    }
+
+    private CheckoutSagaEngine newEngine(InMemorySagaRepository sagaRepository,
+                                         InMemoryProcessedEventRepository processedEventRepository,
+                                         CapturingCommandPublisher publisher) {
+        CheckoutSagaCommandSender sender = new CheckoutSagaCommandSender(publisher);
+        return new CheckoutSagaEngine(
+                sagaRepository,
+                processedEventRepository,
+                sender,
+                objectMapper,
+                sagaProperties
+        );
     }
 
     private EventEnvelope envelope(String eventType, String eventId, String key, Object payload, String correlationId)
@@ -255,7 +286,10 @@ class CheckoutSagaServiceTest {
                         new OrderPlacedEventV1.Item("sku-1", 2, "10.00"),
                         new OrderPlacedEventV1.Item("sku-2", 1, "5.00")
                 ),
-                "2.50"
+                "22.50",
+                "BRL",
+                "2.50",
+                "card"
         );
     }
 
@@ -272,6 +306,18 @@ class CheckoutSagaServiceTest {
             return Optional.ofNullable(store.get(orderId));
         }
 
+        @Override
+        public List<CheckoutSaga> findTimedOut(java.time.Instant now) {
+            return store.values().stream()
+                    .filter(saga -> saga.getDeadlineAt() != null)
+                    .filter(saga -> !saga.getDeadlineAt().isAfter(now))
+                    .filter(saga -> saga.getStatus() == SagaStatus.RUNNING)
+                    .filter(saga -> saga.getStep() == SagaStep.WAIT_INVENTORY
+                            || saga.getStep() == SagaStep.WAIT_PAYMENT
+                            || saga.getStep() == SagaStep.WAIT_ORDER_COMPLETION)
+                    .toList();
+        }
+
         CheckoutSaga get(String orderId) {
             return store.get(orderId);
         }
@@ -281,13 +327,8 @@ class CheckoutSagaServiceTest {
         private final Map<String, String> processed = new HashMap<>();
 
         @Override
-        public boolean alreadyProcessed(String eventId) {
-            return processed.containsKey(eventId);
-        }
-
-        @Override
-        public void markProcessed(String eventId, String eventType, String orderId) {
-            processed.put(eventId, eventType + ":" + orderId);
+        public boolean markProcessedIfFirst(String eventId, String eventType, String orderId) {
+            return processed.putIfAbsent(eventId, eventType + ":" + orderId) == null;
         }
 
         int count() {

@@ -6,5 +6,6 @@ public record PaymentAuthorizeCommandV1(
         String orderId,
         String customerId,
         String amount,
-        String currency
+        String currency,
+        String paymentMethod
 ) {}

@@ -1,0 +1,36 @@
+ALTER TABLE checkout_saga
+    ADD COLUMN IF NOT EXISTS payment_method VARCHAR(64),
+    ADD COLUMN IF NOT EXISTS items_json TEXT,
+    ADD COLUMN IF NOT EXISTS deadline_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS attempts_inventory INTEGER NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS attempts_payment INTEGER NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS attempts_order_completion INTEGER NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS last_error VARCHAR(512),
+    ADD COLUMN IF NOT EXISTS last_event_id VARCHAR(128);
+
+UPDATE checkout_saga
+SET status = 'CANCELED'
+WHERE status = 'CANCELLED';
+
+UPDATE checkout_saga
+SET step = 'WAIT_INVENTORY'
+WHERE step = 'INVENTORY_RESERVE_PENDING';
+
+UPDATE checkout_saga
+SET step = 'WAIT_PAYMENT'
+WHERE step = 'PAYMENT_AUTHORIZE_PENDING';
+
+UPDATE checkout_saga
+SET step = 'WAIT_ORDER_COMPLETION'
+WHERE step = 'ORDER_COMPLETE_PENDING';
+
+UPDATE checkout_saga
+SET step = 'COMPENSATING'
+WHERE step IN (
+    'COMPENSATE_INVENTORY_RELEASE_PENDING',
+    'COMPENSATE_ORDER_CANCEL_PENDING',
+    'WAITING_COMPENSATIONS'
+);
+
+CREATE INDEX IF NOT EXISTS idx_checkout_saga_deadline_at
+ON checkout_saga (deadline_at);

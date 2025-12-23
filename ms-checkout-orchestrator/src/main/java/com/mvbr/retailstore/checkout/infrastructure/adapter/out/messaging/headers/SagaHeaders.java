@@ -31,6 +31,7 @@ public final class SagaHeaders {
                 : eventId;
 
         headers.put(HeaderNames.EVENT_ID, resolvedEventId);
+        headers.put(HeaderNames.COMMAND_ID, resolvedEventId);
         headers.put(HeaderNames.OCCURRED_AT, Instant.now().toString());
 
         headers.put(HeaderNames.PRODUCER, PRODUCER);
