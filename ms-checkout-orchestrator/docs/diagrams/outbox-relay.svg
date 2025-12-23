@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520">
+<defs>
+<marker id="arrow" markerWidth="12" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="strokeWidth">
+<polygon points="0 0, 12 4, 0 8" fill="#333333" />
+</marker>
+</defs>
+<rect x="0" y="0" width="1200" height="520" fill="#ffffff" />
+<rect x="60" y="90" width="220" height="70" fill="#f5f5f5" stroke="#333333" stroke-width="2" />
+<text x="170" y="125" font-family="Arial, Helvetica, sans-serif" font-size="13" text-anchor="middle" fill="#111111"><tspan x="170" dy="0">CheckoutSagaEngine</tspan></text>
+<rect x="340" y="70" width="340" height="110" fill="#eef4ff" stroke="#2f4a6d" stroke-width="2" />
+<text x="510" y="110" font-family="Arial, Helvetica, sans-serif" font-size="14" text-anchor="middle" fill="#111111"><tspan x="510" dy="0">Postgres</tspan></text>
+<text x="510" y="135" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="middle" fill="#111111"><tspan x="510" dy="0">checkout_saga + outbox_messages</tspan></text>
+<rect x="340" y="230" width="340" height="70" fill="#ffffff" stroke="#333333" stroke-width="2" />
+<text x="510" y="265" font-family="Arial, Helvetica, sans-serif" font-size="13" text-anchor="middle" fill="#111111"><tspan x="510" dy="0">OutboxRelay</tspan></text>
+<rect x="760" y="90" width="220" height="70" fill="#f5f5f5" stroke="#333333" stroke-width="2" />
+<text x="870" y="125" font-family="Arial, Helvetica, sans-serif" font-size="13" text-anchor="middle" fill="#111111"><tspan x="870" dy="0">Kafka commands</tspan></text>
+<line x1="280" y1="125" x2="340" y2="125" stroke="#333333" stroke-width="2" marker-end="url(#arrow)" />
+<text x="310" y="105" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="middle" fill="#111111"><tspan x="310" dy="0">tx: save saga + outbox PENDING</tspan></text>
+<line x1="510" y1="180" x2="510" y2="230" stroke="#333333" stroke-width="2" marker-end="url(#arrow)" />
+<text x="530" y="205" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111"><tspan x="530" dy="0">commit</tspan></text>
+<line x1="510" y1="300" x2="510" y2="360" stroke="#333333" stroke-width="2" marker-end="url(#arrow)" />
+<text x="530" y="335" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111"><tspan x="530" dy="0">poll PENDING</tspan></text>
+<line x1="510" y1="360" x2="760" y2="125" stroke="#333333" stroke-width="2" marker-end="url(#arrow)" />
+<text x="640" y="140" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="middle" fill="#111111"><tspan x="640" dy="0">publish command</tspan></text>
+<line x1="510" y1="300" x2="340" y2="125" stroke="#333333" stroke-width="2" marker-end="url(#arrow)" />
+<text x="395" y="155" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="middle" fill="#111111"><tspan x="395" dy="0">update outbox status</tspan></text>
+</svg>
