@@ -14,6 +14,10 @@ import java.util.Optional;
 import java.util.logging.Logger;
 
 @Component
+/**
+ * Scheduler que varre sagas expiradas e dispara retries ou compensacoes.
+ * Chamado periodicamente pelo Spring Scheduling.
+ */
 public class CheckoutSagaTimeoutScheduler {
 
     private static final Logger log = Logger.getLogger(CheckoutSagaTimeoutScheduler.class.getName());
@@ -34,6 +38,10 @@ public class CheckoutSagaTimeoutScheduler {
         this.sagaProperties = sagaProperties;
     }
 
+    /**
+     * Ponto de entrada do scheduler: busca sagas vencidas e trata uma a uma.
+     * Fluxo: Spring Scheduler -> tick() -> handleTimeout().
+     */
     @Scheduled(fixedDelayString = "${saga.timeouts.scanFixedDelayMs:5000}")
     @Transactional
     public void tick() {
@@ -47,6 +55,9 @@ public class CheckoutSagaTimeoutScheduler {
         }
     }
 
+    /**
+     * Direciona o timeout para a acao correta conforme a etapa atual.
+     */
     private void handleTimeout(CheckoutSaga saga) {
         String causationId = Optional.ofNullable(saga.getLastEventId()).orElse(saga.getSagaId());
         switch (saga.getStep()) {
@@ -57,6 +68,9 @@ public class CheckoutSagaTimeoutScheduler {
         }
     }
 
+    /**
+     * Trata timeout de estoque: retry ou compensacao (cancelar pedido).
+     */
     private void handleInventoryTimeout(CheckoutSaga saga, String causationId) {
         int maxRetries = sagaProperties.getRetries().getInventoryMax();
         if (saga.getAttemptsInventory() < maxRetries) {
@@ -71,6 +85,9 @@ public class CheckoutSagaTimeoutScheduler {
         commandSender.sendOrderCancel(saga, causationId, SagaStep.COMPENSATING.name(), REASON_INVENTORY_TIMEOUT);
     }
 
+    /**
+     * Trata timeout de pagamento: retry ou compensacao (liberar estoque + cancelar).
+     */
     private void handlePaymentTimeout(CheckoutSaga saga, String causationId) {
         int maxRetries = sagaProperties.getRetries().getPaymentMax();
         if (saga.getAttemptsPayment() < maxRetries) {
@@ -86,6 +103,9 @@ public class CheckoutSagaTimeoutScheduler {
         commandSender.sendOrderCancel(saga, causationId, SagaStep.COMPENSATING.name(), REASON_PAYMENT_TIMEOUT);
     }
 
+    /**
+     * Trata timeout de conclusao do pedido: retry ou cancelamento local da saga.
+     */
     private void handleOrderCompletionTimeout(CheckoutSaga saga, String causationId) {
         int maxRetries = sagaProperties.getRetries().getOrderCompleteMax();
         if (saga.getAttemptsOrderCompletion() < maxRetries) {
@@ -100,6 +120,9 @@ public class CheckoutSagaTimeoutScheduler {
         sagaRepository.save(saga);
     }
 
+    /**
+     * Calcula um novo deadline a partir de agora.
+     */
     private Instant deadlineAfterSeconds(long seconds) {
         return Instant.now().plusSeconds(seconds);
     }

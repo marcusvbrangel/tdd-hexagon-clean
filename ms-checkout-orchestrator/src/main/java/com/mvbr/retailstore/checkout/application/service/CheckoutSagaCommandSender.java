@@ -19,6 +19,10 @@ import java.util.Map;
 import java.util.UUID;
 
 @Component
+/**
+ * Construtor de comandos da saga e ponto de saida para o barramento.
+ * Chamado pelo CheckoutSagaEngine e pelo CheckoutSagaTimeoutScheduler.
+ */
 public class CheckoutSagaCommandSender {
 
     private static final String SAGA_NAME = "checkout";
@@ -30,6 +34,10 @@ public class CheckoutSagaCommandSender {
         this.commandPublisher = commandPublisher;
     }
 
+    /**
+     * Envia comando para reservar estoque.
+     * Fluxo: CheckoutSagaEngine/TimeoutScheduler -> este sender -> CommandPublisher.
+     */
     public void sendInventoryReserve(CheckoutSaga saga, String causationId, String sagaStep) {
         String commandId = newCommandId();
         InventoryReserveCommandV1 cmd = new InventoryReserveCommandV1(
@@ -60,6 +68,10 @@ public class CheckoutSagaCommandSender {
         );
     }
 
+    /**
+     * Envia comando para autorizar pagamento.
+     * Chamado apos inventory.reserved ou por retry de timeout.
+     */
     public void sendPaymentAuthorize(CheckoutSaga saga, String causationId, String sagaStep) {
         String commandId = newCommandId();
         PaymentAuthorizeCommandV1 cmd = new PaymentAuthorizeCommandV1(
@@ -93,6 +105,9 @@ public class CheckoutSagaCommandSender {
         );
     }
 
+    /**
+     * Envia comando para concluir o pedido no servico de orders.
+     */
     public void sendOrderComplete(CheckoutSaga saga, String causationId, String sagaStep) {
         String commandId = newCommandId();
         OrderCompleteCommandV1 cmd = new OrderCompleteCommandV1(
@@ -122,6 +137,9 @@ public class CheckoutSagaCommandSender {
         );
     }
 
+    /**
+     * Envia comando para cancelar o pedido (compensacao).
+     */
     public void sendOrderCancel(CheckoutSaga saga, String causationId, String sagaStep, String reason) {
         String commandId = newCommandId();
         OrderCancelCommandV1 cmd = new OrderCancelCommandV1(
@@ -152,6 +170,9 @@ public class CheckoutSagaCommandSender {
         );
     }
 
+    /**
+     * Envia comando para liberar estoque (compensacao).
+     */
     public void sendInventoryRelease(CheckoutSaga saga, String causationId, String sagaStep) {
         String commandId = newCommandId();
         InventoryReleaseCommandV1 cmd = new InventoryReleaseCommandV1(
@@ -182,6 +203,9 @@ public class CheckoutSagaCommandSender {
         );
     }
 
+    /**
+     * Converte itens do dominio para o formato do comando de estoque.
+     */
     private List<InventoryReserveCommandV1.Item> toItems(List<CheckoutSagaItem> items) {
         if (items == null || items.isEmpty()) {
             return List.of();
@@ -191,14 +215,23 @@ public class CheckoutSagaCommandSender {
                 .toList();
     }
 
+    /**
+     * Gera um novo id para comando/evento.
+     */
     private String newCommandId() {
         return UUID.randomUUID().toString();
     }
 
+    /**
+     * Timestamp padrao para eventos de comando.
+     */
     private String now() {
         return Instant.now().toString();
     }
 
+    /**
+     * Ajusta headers de tipo de comando e evento para roteamento.
+     */
     private void applyCommandType(Map<String, String> headers, String commandType) {
         headers.put(HeaderNames.COMMAND_TYPE, commandType);
         headers.put(HeaderNames.EVENT_TYPE, commandType);

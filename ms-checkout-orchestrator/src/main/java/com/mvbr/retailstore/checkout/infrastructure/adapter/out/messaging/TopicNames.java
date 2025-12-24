@@ -1,7 +1,13 @@
 package com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging;
 
+/**
+ * Constantes com nomes de topicos Kafka usados pela saga.
+ */
 public final class TopicNames {
 
+    /**
+     * Evita instancia; apenas constantes.
+     */
     private TopicNames() {}
 
     public static final String ORDER_EVENTS_V1 = "order.events.v1";

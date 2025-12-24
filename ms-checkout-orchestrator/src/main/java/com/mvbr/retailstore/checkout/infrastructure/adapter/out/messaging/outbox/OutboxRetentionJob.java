@@ -11,6 +11,9 @@ import java.util.logging.Logger;
 
 @Component
 @ConditionalOnProperty(prefix = "outbox.retention", name = "enabled", havingValue = "true", matchIfMissing = true)
+/**
+ * Job de limpeza da outbox para remover mensagens publicadas antigas.
+ */
 public class OutboxRetentionJob {
 
     private static final Logger log = Logger.getLogger(OutboxRetentionJob.class.getName());
@@ -21,6 +24,9 @@ public class OutboxRetentionJob {
         this.outboxRepository = outboxRepository;
     }
 
+    /**
+     * Remove mensagens publicadas mais antigas que o cutoff configurado.
+     */
     @Scheduled(cron = "${outbox.retention.cron:0 0 3 * * *}")
     @Transactional
     public void cleanupPublished() {

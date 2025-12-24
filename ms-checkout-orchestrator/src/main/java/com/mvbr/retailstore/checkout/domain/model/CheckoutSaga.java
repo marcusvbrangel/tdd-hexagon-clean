@@ -8,6 +8,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
+/**
+ * Agregado de dominio que representa a saga de checkout e suas transicoes.
+ * Atualizado pelo CheckoutSagaEngine com eventos recebidos e pelo scheduler de timeout.
+ */
 public class CheckoutSaga {
 
     private final String orderId;
@@ -36,6 +40,10 @@ public class CheckoutSaga {
     private boolean inventoryReleased;
     private boolean orderCanceled;
 
+    /**
+     * Construtor privado que valida invariantes basicas.
+     * Usado pelos factories start() e restore().
+     */
     private CheckoutSaga(String orderId, String sagaId, String correlationId) {
         if (orderId == null || orderId.isBlank()) {
             throw new SagaDomainException("orderId cannot be null/blank");
@@ -58,10 +66,18 @@ public class CheckoutSaga {
         this.deadlineAt = null;
     }
 
+    /**
+     * Inicia uma nova saga para um pedido.
+     * Chamado pelo CheckoutSagaEngine quando recebe order.placed.
+     */
     public static CheckoutSaga start(String orderId, String correlationId) {
         return new CheckoutSaga(orderId, UUID.randomUUID().toString(), correlationId);
     }
 
+    /**
+     * Registra os dados do pedido e avanca para a reserva de estoque.
+     * Chamado pelo CheckoutSagaEngine apos processar order.placed.
+     */
     public void onOrderPlaced(String customerId,
                               String amount,
                               String currency,
@@ -89,6 +105,10 @@ public class CheckoutSaga {
         this.lastError = null;
     }
 
+    /**
+     * Avanca a saga quando o estoque foi reservado.
+     * Chamado pelo CheckoutSagaEngine ao receber inventory.reserved.
+     */
     public void onInventoryReserved(Instant deadlineAt) {
         if (status != SagaStatus.RUNNING) {
             return;
@@ -100,6 +120,10 @@ public class CheckoutSaga {
         this.lastError = null;
     }
 
+    /**
+     * Cancela a saga quando a reserva de estoque falha.
+     * Chamado pelo CheckoutSagaEngine ao receber inventory.rejected.
+     */
     public void onInventoryRejected(String reason) {
         if (status != SagaStatus.RUNNING) {
             return;
@@ -112,6 +136,10 @@ public class CheckoutSaga {
         this.deadlineAt = null;
     }
 
+    /**
+     * Avanca a saga quando o pagamento e autorizado.
+     * Chamado pelo CheckoutSagaEngine ao receber payment.authorized.
+     */
     public void onPaymentAuthorized(Instant deadlineAt) {
         if (status != SagaStatus.RUNNING) {
             return;
@@ -123,6 +151,10 @@ public class CheckoutSaga {
         this.lastError = null;
     }
 
+    /**
+     * Cancela a saga quando o pagamento e recusado.
+     * Chamado pelo CheckoutSagaEngine ao receber payment.declined.
+     */
     public void onPaymentDeclined(String reason) {
         if (status != SagaStatus.RUNNING) {
             return;
@@ -136,6 +168,10 @@ public class CheckoutSaga {
         this.deadlineAt = null;
     }
 
+    /**
+     * Finaliza a saga quando o pedido foi concluido no servico de orders.
+     * Chamado pelo CheckoutSagaEngine ao receber order.completed.
+     */
     public void markOrderCompleted() {
         if (status != SagaStatus.RUNNING) {
             return;
@@ -147,10 +183,18 @@ public class CheckoutSaga {
         this.deadlineAt = null;
     }
 
+    /**
+     * Marca a compensacao de estoque como concluida.
+     * Chamado pelo CheckoutSagaEngine ao receber inventory.released.
+     */
     public void markInventoryReleased() {
         this.inventoryReleased = true;
     }
 
+    /**
+     * Marca o pedido como cancelado e encerra a saga se ainda estiver rodando.
+     * Chamado pelo CheckoutSagaEngine ao receber order.canceled ou por timeout.
+     */
     public void markOrderCanceled(String reason) {
         this.orderCanceled = true;
         if (reason != null && !reason.isBlank()) {
@@ -163,24 +207,39 @@ public class CheckoutSaga {
         }
     }
 
+    /**
+     * Agenda nova tentativa de reserva de estoque.
+     * Chamado pelo CheckoutSagaTimeoutScheduler quando o timeout expira.
+     */
     public void scheduleInventoryRetry(Instant deadlineAt) {
         ensureStep(SagaStep.WAIT_INVENTORY);
         this.attemptsInventory += 1;
         this.deadlineAt = Objects.requireNonNull(deadlineAt, "deadlineAt");
     }
 
+    /**
+     * Agenda nova tentativa de autorizacao de pagamento.
+     * Chamado pelo CheckoutSagaTimeoutScheduler quando o timeout expira.
+     */
     public void schedulePaymentRetry(Instant deadlineAt) {
         ensureStep(SagaStep.WAIT_PAYMENT);
         this.attemptsPayment += 1;
         this.deadlineAt = Objects.requireNonNull(deadlineAt, "deadlineAt");
     }
 
+    /**
+     * Agenda nova tentativa de concluir o pedido.
+     * Chamado pelo CheckoutSagaTimeoutScheduler quando o timeout expira.
+     */
     public void scheduleOrderCompletionRetry(Instant deadlineAt) {
         ensureStep(SagaStep.WAIT_ORDER_COMPLETION);
         this.attemptsOrderCompletion += 1;
         this.deadlineAt = Objects.requireNonNull(deadlineAt, "deadlineAt");
     }
 
+    /**
+     * Guarda o ultimo eventId processado para correlacionar reenvios e timeouts.
+     */
     public void recordLastEvent(String eventId) {
         if (eventId == null || eventId.isBlank()) {
             return;
@@ -188,12 +247,18 @@ public class CheckoutSaga {
         this.lastEventId = eventId;
     }
 
+    /**
+     * Garante que a transicao esta na etapa esperada.
+     */
     private void ensureStep(SagaStep expected) {
         if (this.step != expected) {
             throw new SagaDomainException("Invalid step transition: expected " + expected + " but was " + step);
         }
     }
 
+    /**
+     * Valida campos obrigatorios do evento de entrada.
+     */
     private String required(String value, String name) {
         if (value == null || value.isBlank()) {
             throw new SagaDomainException(name + " cannot be null/blank");
@@ -201,6 +266,9 @@ public class CheckoutSaga {
         return value;
     }
 
+    /**
+     * Normaliza a lista de itens para evitar mutacoes externas.
+     */
     private List<CheckoutSagaItem> sanitizeItems(List<CheckoutSagaItem> items) {
         if (items == null || items.isEmpty()) {
             return List.of();
@@ -208,82 +276,143 @@ public class CheckoutSaga {
         return List.copyOf(new ArrayList<>(items));
     }
 
+    /**
+     * Identificador do pedido, usado como chave de persistencia e roteamento.
+     */
     public String getOrderId() {
         return orderId;
     }
 
+    /**
+     * Identificador unico da saga, propagado em headers e persistencia.
+     */
     public String getSagaId() {
         return sagaId;
     }
 
+    /**
+     * Correlacao entre eventos do mesmo pedido.
+     */
     public String getCorrelationId() {
         return correlationId;
     }
 
+    /**
+     * Status geral da saga para controle de fluxo.
+     */
     public SagaStatus getStatus() {
         return status;
     }
 
+    /**
+     * Etapa atual da saga usada para validar transicoes e timeouts.
+     */
     public SagaStep getStep() {
         return step;
     }
 
+    /**
+     * Identificador do cliente associado ao pedido.
+     */
     public String getCustomerId() {
         return customerId;
     }
 
+    /**
+     * Valor total do pedido no formato string.
+     */
     public String getAmount() {
         return amount;
     }
 
+    /**
+     * Moeda usada no pagamento.
+     */
     public String getCurrency() {
         return currency;
     }
 
+    /**
+     * Metodo de pagamento selecionado.
+     */
     public String getPaymentMethod() {
         return paymentMethod;
     }
 
+    /**
+     * Itens do pedido usados para reserva de estoque.
+     */
     public List<CheckoutSagaItem> getItems() {
         return items;
     }
 
+    /**
+     * Momento limite para a etapa atual.
+     */
     public Instant getDeadlineAt() {
         return deadlineAt;
     }
 
+    /**
+     * Numero de tentativas de reserva de estoque.
+     */
     public int getAttemptsInventory() {
         return attemptsInventory;
     }
 
+    /**
+     * Numero de tentativas de autorizacao de pagamento.
+     */
     public int getAttemptsPayment() {
         return attemptsPayment;
     }
 
+    /**
+     * Numero de tentativas de conclusao do pedido.
+     */
     public int getAttemptsOrderCompletion() {
         return attemptsOrderCompletion;
     }
 
+    /**
+     * Ultimo erro registrado durante a saga.
+     */
     public String getLastError() {
         return lastError;
     }
 
+    /**
+     * Ultimo eventId processado pela saga.
+     */
     public String getLastEventId() {
         return lastEventId;
     }
 
+    /**
+     * Indica se o pedido ja foi concluido com sucesso.
+     */
     public boolean isOrderCompleted() {
         return orderCompleted;
     }
 
+    /**
+     * Indica se o estoque ja foi liberado na compensacao.
+     */
     public boolean isInventoryReleased() {
         return inventoryReleased;
     }
 
+    /**
+     * Indica se o pedido foi cancelado.
+     */
     public boolean isOrderCanceled() {
         return orderCanceled;
     }
 
+    /**
+     * Restaura a saga a partir de dados persistidos.
+     * Chamado pelo adapter JPA ao ler do banco.
+     */
     public static CheckoutSaga restore(
             String orderId,
             String sagaId,

@@ -12,6 +12,10 @@ import jakarta.persistence.Version;
 
 import java.time.Instant;
 
+/**
+ * Entidade JPA para mensagens do padrao outbox (publicacao confiavel).
+ * Criada pelo OutboxCommandPublisherAdapter e publicada pelo OutboxRelay.
+ */
 @Entity
 @Table(
         name = "outbox_messages",
@@ -23,6 +27,9 @@ import java.time.Instant;
 )
 public class OutboxMessageJpaEntity {
 
+    /**
+     * Estados do processamento da outbox.
+     */
     public enum Status { PENDING, IN_PROGRESS, PUBLISHED, FAILED }
 
     @Id
@@ -76,8 +83,14 @@ public class OutboxMessageJpaEntity {
     @Version
     private long version;
 
+    /**
+     * Construtor padrao exigido pelo JPA.
+     */
     protected OutboxMessageJpaEntity() {}
 
+    /**
+     * Cria uma nova mensagem com status PENDING pronta para publicacao.
+     */
     public OutboxMessageJpaEntity(String eventId,
                                   String aggregateType,
                                   String aggregateId,
@@ -100,6 +113,9 @@ public class OutboxMessageJpaEntity {
         this.retryCount = 0;
     }
 
+    /*
+     * Getters usados pelo OutboxRelay e pelo JPA.
+     */
     public Long getId() { return id; }
     public String getEventId() { return eventId; }
     public String getAggregateType() { return aggregateType; }
@@ -116,10 +132,16 @@ public class OutboxMessageJpaEntity {
     public int getRetryCount() { return retryCount; }
     public Instant getNextAttemptAt() { return nextAttemptAt; }
 
+    /**
+     * Marca a mensagem como em processamento antes do envio ao Kafka.
+     */
     public void markInProgress() {
         this.status = Status.IN_PROGRESS.name();
     }
 
+    /**
+     * Marca como publicada com timestamp e limpa erros.
+     */
     public void markPublished() {
         this.status = Status.PUBLISHED.name();
         this.publishedAt = Instant.now();
@@ -127,6 +149,9 @@ public class OutboxMessageJpaEntity {
         this.nextAttemptAt = this.publishedAt;
     }
 
+    /**
+     * Marca como falha e agenda novo envio com backoff.
+     */
     public void markFailed(String error) {
         this.status = Status.FAILED.name();
         this.lastError = error;
@@ -134,6 +159,9 @@ public class OutboxMessageJpaEntity {
         this.nextAttemptAt = computeBackoff();
     }
 
+    /**
+     * Calcula o backoff exponencial baseado no numero de falhas.
+     */
     private Instant computeBackoff() {
         long baseSeconds = 5;
         long maxSeconds = 3600;

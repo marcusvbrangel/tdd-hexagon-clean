@@ -26,6 +26,10 @@ import java.util.Optional;
 import java.util.logging.Logger;
 
 @Service
+/**
+ * Motor central da saga: processa eventos de dominio e comanda as proximas etapas.
+ * Entrada principal: CheckoutEventsConsumer chama handle().
+ */
 public class CheckoutSagaEngine {
 
     private static final Logger log = Logger.getLogger(CheckoutSagaEngine.class.getName());
@@ -51,6 +55,10 @@ public class CheckoutSagaEngine {
         this.sagaProperties = sagaProperties;
     }
 
+    /**
+     * Processa um evento recebido do Kafka e despacha para o handler correto.
+     * Fluxo: CheckoutEventsConsumer -> handle() -> on<Evento>() -> CommandSender.
+     */
     @Transactional
     public void handle(EventEnvelope env) {
         if (env.eventId() == null || env.eventId().isBlank()) {
@@ -80,6 +88,9 @@ public class CheckoutSagaEngine {
         }
     }
 
+    /**
+     * Garante idempotencia: so processa se o evento ainda nao foi marcado.
+     */
     private boolean handleIfFirst(EventEnvelope env, String orderId, EventHandler handler) {
         if (!processedEventRepository.markProcessedIfFirst(env.eventId(), env.eventType(), orderId)) {
             return true;
@@ -88,6 +99,9 @@ public class CheckoutSagaEngine {
         return true;
     }
 
+    /**
+     * Handler para order.placed: cria ou carrega saga, avanca para reserva de estoque.
+     */
     private void onOrderPlaced(EventEnvelope env) {
         OrderPlacedEventV1 placed = env.readPayload(objectMapper, OrderPlacedEventV1.class);
         String orderId = resolveOrderId(placed.orderId(), env);
@@ -123,6 +137,9 @@ public class CheckoutSagaEngine {
         commandSender.sendInventoryReserve(saga, env.eventId(), SagaStep.WAIT_INVENTORY.name());
     }
 
+    /**
+     * Handler para inventory.reserved: avanca para autorizacao de pagamento.
+     */
     private void onInventoryReserved(EventEnvelope env) {
         InventoryReservedEventV1 event = env.readPayload(objectMapper, InventoryReservedEventV1.class);
         String orderId = resolveOrderId(event.orderId(), env);
@@ -141,6 +158,9 @@ public class CheckoutSagaEngine {
         commandSender.sendPaymentAuthorize(saga, env.eventId(), SagaStep.WAIT_PAYMENT.name());
     }
 
+    /**
+     * Handler para inventory.rejected: registra erro e aciona cancelamento do pedido.
+     */
     private void onInventoryRejected(EventEnvelope env) {
         InventoryRejectedEventV1 event = env.readPayload(objectMapper, InventoryRejectedEventV1.class);
         String orderId = resolveOrderId(event.orderId(), env);
@@ -160,6 +180,9 @@ public class CheckoutSagaEngine {
         commandSender.sendOrderCancel(saga, env.eventId(), SagaStep.COMPENSATING.name(), REASON_INVENTORY_REJECTED);
     }
 
+    /**
+     * Handler para payment.authorized: avanca para conclusao do pedido.
+     */
     private void onPaymentAuthorized(EventEnvelope env) {
         PaymentAuthorizedEventV1 event = env.readPayload(objectMapper, PaymentAuthorizedEventV1.class);
         String orderId = resolveOrderId(event.orderId(), env);
@@ -178,6 +201,9 @@ public class CheckoutSagaEngine {
         commandSender.sendOrderComplete(saga, env.eventId(), SagaStep.WAIT_ORDER_COMPLETION.name());
     }
 
+    /**
+     * Handler para payment.declined: registra erro e dispara compensacoes.
+     */
     private void onPaymentDeclined(EventEnvelope env) {
         PaymentDeclinedEventV1 event = env.readPayload(objectMapper, PaymentDeclinedEventV1.class);
         String orderId = resolveOrderId(event.orderId(), env);
@@ -198,6 +224,9 @@ public class CheckoutSagaEngine {
         commandSender.sendOrderCancel(saga, env.eventId(), SagaStep.COMPENSATING.name(), REASON_PAYMENT_DECLINED);
     }
 
+    /**
+     * Handler para order.completed: finaliza a saga.
+     */
     private void onOrderCompleted(EventEnvelope env) {
         OrderCompletedEventV1 event = env.readPayload(objectMapper, OrderCompletedEventV1.class);
         String orderId = resolveOrderId(event.orderId(), env);
@@ -214,6 +243,9 @@ public class CheckoutSagaEngine {
         sagaRepository.save(saga);
     }
 
+    /**
+     * Handler para order.canceled: encerra a saga se ainda estava em execucao.
+     */
     private void onOrderCanceled(EventEnvelope env) {
         OrderCanceledEventV1 event = env.readPayload(objectMapper, OrderCanceledEventV1.class);
         String orderId = resolveOrderId(event.orderId(), env);
@@ -228,6 +260,9 @@ public class CheckoutSagaEngine {
         }
     }
 
+    /**
+     * Handler para inventory.released: marca compensacao concluida.
+     */
     private void onInventoryReleased(EventEnvelope env) {
         CheckoutSaga saga = sagaRepository.findByOrderId(env.aggregateIdOrKey()).orElse(null);
         if (saga == null) {
@@ -239,6 +274,9 @@ public class CheckoutSagaEngine {
         sagaRepository.save(saga);
     }
 
+    /**
+     * Verifica se o evento chegou na etapa esperada antes de aplicar transicao.
+     */
     private boolean isExpectedStep(CheckoutSaga saga, SagaStep expected, EventEnvelope env) {
         if (saga.getStatus() != SagaStatus.RUNNING || saga.getStep() != expected) {
             log.warning("Out-of-order event=" + env.eventType()
@@ -251,6 +289,9 @@ public class CheckoutSagaEngine {
         return true;
     }
 
+    /**
+     * Localiza a saga por orderId e registra logs quando nao encontrada.
+     */
     private CheckoutSaga findSaga(String orderId, String eventType, String eventId) {
         if (orderId == null || orderId.isBlank()) {
             log.warning(eventType + " without orderId eventId=" + eventId);
@@ -264,6 +305,9 @@ public class CheckoutSagaEngine {
         return sagaOpt.get();
     }
 
+    /**
+     * Resolve o orderId priorizando o payload e usando o header como fallback.
+     */
     private String resolveOrderId(String eventOrderId, EventEnvelope env) {
         if (eventOrderId != null && !eventOrderId.isBlank()) {
             return eventOrderId;
@@ -271,6 +315,9 @@ public class CheckoutSagaEngine {
         return env.aggregateIdOrKey();
     }
 
+    /**
+     * Calcula total e moeda a partir do evento de pedido, com fallback para itens.
+     */
     private AmountSummary resolveAmount(OrderPlacedEventV1 placed, String orderId) {
         String currency = (placed.currency() == null || placed.currency().isBlank())
                 ? "BRL"
@@ -291,6 +338,9 @@ public class CheckoutSagaEngine {
         return new AmountSummary(total.toPlainString(), currency);
     }
 
+    /**
+     * Recalcula o total a partir dos itens e desconto do pedido.
+     */
     private BigDecimal computeTotalFromItems(List<OrderPlacedEventV1.Item> items, String discountValue) {
         if (items == null || items.isEmpty()) {
             return BigDecimal.ZERO;
@@ -304,6 +354,9 @@ public class CheckoutSagaEngine {
         return total.signum() < 0 ? BigDecimal.ZERO : total;
     }
 
+    /**
+     * Faz parse de string em BigDecimal, retornando null quando invalido.
+     */
     private BigDecimal parseBigDecimal(String value) {
         if (value == null || value.isBlank()) {
             return null;
@@ -315,11 +368,17 @@ public class CheckoutSagaEngine {
         }
     }
 
+    /**
+     * Faz parse com fallback para valor padrao quando invalido.
+     */
     private BigDecimal parseBigDecimal(String value, BigDecimal fallback) {
         BigDecimal parsed = parseBigDecimal(value);
         return parsed == null ? fallback : parsed;
     }
 
+    /**
+     * Converte itens do evento para itens do dominio.
+     */
     private List<CheckoutSagaItem> toSagaItems(List<OrderPlacedEventV1.Item> items) {
         if (items == null || items.isEmpty()) {
             return List.of();
@@ -329,10 +388,16 @@ public class CheckoutSagaEngine {
                 .toList();
     }
 
+    /**
+     * Calcula deadline relativo para a proxima etapa.
+     */
     private Instant deadlineAfterSeconds(long seconds) {
         return Instant.now().plusSeconds(seconds);
     }
 
+    /**
+     * Monta mensagem de erro base + detalhe opcional.
+     */
     private String errorWithDetail(String base, String detail) {
         if (detail == null || detail.isBlank()) {
             return base;
@@ -340,8 +405,14 @@ public class CheckoutSagaEngine {
         return base + ":" + detail;
     }
 
+    /**
+     * Resumo de total e moeda usado internamente no processamento.
+     */
     private record AmountSummary(String total, String currency) {}
 
+    /**
+     * Interface funcional para handlers de eventos tipados.
+     */
     private interface EventHandler {
         void handle(EventEnvelope env);
     }

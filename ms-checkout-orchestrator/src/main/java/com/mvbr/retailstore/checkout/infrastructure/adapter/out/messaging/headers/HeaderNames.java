@@ -1,7 +1,13 @@
 package com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.headers;
 
+/**
+ * Constantes de headers Kafka usados na comunicacao entre servicos.
+ */
 public final class HeaderNames {
 
+    /**
+     * Evita instancia; apenas constantes.
+     */
     private HeaderNames() {}
 
     public static final String EVENT_ID = "x-event-id";

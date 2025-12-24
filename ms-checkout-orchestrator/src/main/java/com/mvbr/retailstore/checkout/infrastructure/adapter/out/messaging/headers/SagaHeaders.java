@@ -5,6 +5,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Monta headers padrao para comandos da saga (correlacao, causalidade e metadados).
+ */
 public final class SagaHeaders {
 
     private static final String PRODUCER = "ms-checkout-orchestrator";
@@ -12,8 +15,15 @@ public final class SagaHeaders {
     private static final String TOPIC_VERSION = "v1";
     private static final String CONTENT_TYPE = "application/json";
 
+    /**
+     * Evita instancia; apenas helpers estaticos.
+     */
     private SagaHeaders() {}
 
+    /**
+     * Cria o conjunto de headers para um comando da saga.
+     * Chamado pelo CheckoutSagaCommandSender antes de publicar.
+     */
     public static Map<String, String> forCommand(
             String eventId,
             String sagaId,

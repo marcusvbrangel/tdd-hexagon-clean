@@ -5,6 +5,9 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * Adapter JPA para idempotencia: registra eventos ja processados.
+ */
 public class JpaProcessedEventRepositoryAdapter implements ProcessedEventRepository {
 
     private final JpaProcessedEventSpringDataRepository repo;
@@ -13,6 +16,10 @@ public class JpaProcessedEventRepositoryAdapter implements ProcessedEventReposit
         this.repo = repo;
     }
 
+    /**
+     * Tenta inserir o evento; se ja existir, retorna false.
+     * Chamado pelo CheckoutSagaEngine antes de processar cada evento.
+     */
     @Override
     public boolean markProcessedIfFirst(String eventId, String eventType, String orderId) {
         try {

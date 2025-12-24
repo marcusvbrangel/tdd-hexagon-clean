@@ -14,6 +14,9 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
+/**
+ * Adapter JPA que traduz o agregado CheckoutSaga para a entidade persistida.
+ */
 public class JpaCheckoutSagaRepositoryAdapter implements CheckoutSagaRepository {
 
     private final JpaCheckoutSagaSpringDataRepository repo;
@@ -24,6 +27,10 @@ public class JpaCheckoutSagaRepositoryAdapter implements CheckoutSagaRepository 
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * Salva a saga no banco convertendo para CheckoutSagaJpaEntity.
+     * Chamado pelo CheckoutSagaEngine e pelo scheduler de timeout.
+     */
     @Override
     public void save(CheckoutSaga saga) {
         CheckoutSagaJpaEntity entity = repo.findById(saga.getOrderId())
@@ -53,6 +60,9 @@ public class JpaCheckoutSagaRepositoryAdapter implements CheckoutSagaRepository 
         repo.save(entity);
     }
 
+    /**
+     * Recupera a saga do banco e reconstitui o agregado.
+     */
     @Override
     public Optional<CheckoutSaga> findByOrderId(String orderId) {
         return repo.findById(orderId).map(entity ->
@@ -80,6 +90,10 @@ public class JpaCheckoutSagaRepositoryAdapter implements CheckoutSagaRepository 
         );
     }
 
+    /**
+     * Busca sagas expiradas para reprocessar retries/compensacoes.
+     * Chamado pelo CheckoutSagaTimeoutScheduler.
+     */
     @Override
     public List<CheckoutSaga> findTimedOut(Instant now) {
         List<String> steps = List.of(
@@ -116,6 +130,9 @@ public class JpaCheckoutSagaRepositoryAdapter implements CheckoutSagaRepository 
         ).toList();
     }
 
+    /**
+     * Serializa itens da saga para JSON.
+     */
     private String writeItems(List<CheckoutSagaItem> items) {
         try {
             return (items == null || items.isEmpty())
@@ -126,6 +143,9 @@ public class JpaCheckoutSagaRepositoryAdapter implements CheckoutSagaRepository 
         }
     }
 
+    /**
+     * Desserializa itens da saga a partir de JSON persistido.
+     */
     private List<CheckoutSagaItem> readItems(String itemsJson) {
         if (itemsJson == null || itemsJson.isBlank()) {
             return List.of();

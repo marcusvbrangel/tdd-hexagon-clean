@@ -13,6 +13,10 @@ import java.util.Map;
 
 @Primary
 @Component
+/**
+ * Adapter de saida que grava comandos na tabela outbox.
+ * Chamado pelo CheckoutSagaCommandSender via CommandPublisher.
+ */
 public class OutboxCommandPublisherAdapter implements CommandPublisher {
 
     private static final String AGGREGATE_TYPE = "CheckoutSaga";
@@ -25,6 +29,10 @@ public class OutboxCommandPublisherAdapter implements CommandPublisher {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * Persiste um comando na outbox com headers serializados.
+     * O OutboxRelay ira publicar depois no Kafka.
+     */
     @Override
     public void publish(String topic, String key, String commandType, Object payload, Map<String, String> headers) {
         String payloadJson = write(payload);
@@ -55,6 +63,9 @@ public class OutboxCommandPublisherAdapter implements CommandPublisher {
         outboxRepository.save(msg);
     }
 
+    /**
+     * Serializa objetos para JSON para persistir na outbox.
+     */
     private String write(Object value) {
         try {
             return objectMapper.writeValueAsString(value);

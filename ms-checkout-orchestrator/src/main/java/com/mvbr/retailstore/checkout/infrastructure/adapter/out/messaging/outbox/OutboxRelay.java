@@ -18,6 +18,10 @@ import java.util.logging.Logger;
 
 @Component
 @ConditionalOnProperty(prefix = "outbox.relay", name = "enabled", havingValue = "true", matchIfMissing = true)
+/**
+ * Job que publica mensagens da outbox no Kafka.
+ * Fluxo: tabela outbox -> OutboxRelay -> Kafka.
+ */
 public class OutboxRelay {
 
     private static final Logger log = Logger.getLogger(OutboxRelay.class.getName());
@@ -34,6 +38,9 @@ public class OutboxRelay {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * Varre a outbox periodicamente, publica mensagens e atualiza status.
+     */
     @Scheduled(fixedDelayString = "${outbox.relay.fixedDelayMs:10000}")
     @Transactional
     public void tick() {
@@ -76,6 +83,9 @@ public class OutboxRelay {
         }
     }
 
+    /**
+     * Converte o JSON de headers persistido para map.
+     */
     private Map<String, String> parseHeaders(OutboxMessageJpaEntity msg) {
         try {
             return objectMapper.readValue(msg.getHeadersJson(), new TypeReference<>() {});

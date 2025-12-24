@@ -10,6 +10,10 @@ import jakarta.persistence.Version;
 
 import java.time.Instant;
 
+/**
+ * Entidade JPA que persiste o estado da saga de checkout.
+ * Usada pelo JpaCheckoutSagaRepositoryAdapter para salvar/recuperar a saga.
+ */
 @Entity
 @Table(
         name = "checkout_saga",
@@ -87,8 +91,14 @@ public class CheckoutSagaJpaEntity {
     @Version
     private long version;
 
+    /**
+     * Construtor padrao exigido pelo JPA.
+     */
     protected CheckoutSagaJpaEntity() {}
 
+    /*
+     * Getters e setters usados pelo JPA e pelo adapter para mapear campos.
+     */
     public String getOrderId() { return orderId; }
     public void setOrderId(String orderId) { this.orderId = orderId; }
     public String getSagaId() { return sagaId; }

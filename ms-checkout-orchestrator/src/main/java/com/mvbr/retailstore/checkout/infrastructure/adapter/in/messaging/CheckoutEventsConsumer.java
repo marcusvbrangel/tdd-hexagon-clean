@@ -10,6 +10,9 @@ import org.springframework.stereotype.Component;
 import java.util.logging.Logger;
 
 @Component
+/**
+ * Adaptador de entrada Kafka: recebe eventos e entrega ao motor da saga.
+ */
 public class CheckoutEventsConsumer {
 
     private static final Logger log = Logger.getLogger(CheckoutEventsConsumer.class.getName());
@@ -20,6 +23,10 @@ public class CheckoutEventsConsumer {
         this.sagaEngine = sagaEngine;
     }
 
+    /**
+     * Listener do Kafka para eventos de order/inventory/payment.
+     * Fluxo: Kafka -> CheckoutEventsConsumer -> CheckoutSagaEngine.handle().
+     */
     @KafkaListener(
             topics = {
                     TopicNames.ORDER_EVENTS_V1,

@@ -7,6 +7,9 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 
+/**
+ * Entidade JPA que guarda eventos ja processados para garantir idempotencia.
+ */
 @Entity
 @Table(name = "processed_events")
 public class ProcessedEventJpaEntity {
@@ -24,8 +27,15 @@ public class ProcessedEventJpaEntity {
     @Column(name = "processed_at", nullable = false)
     private Instant processedAt;
 
+    /**
+     * Construtor padrao exigido pelo JPA.
+     */
     protected ProcessedEventJpaEntity() {}
 
+    /**
+     * Cria o registro de processamento com timestamp atual.
+     * Chamado pelo JpaProcessedEventRepositoryAdapter.
+     */
     public ProcessedEventJpaEntity(String eventId, String eventType, String orderId) {
         this.eventId = eventId;
         this.eventType = eventType;
@@ -33,5 +43,8 @@ public class ProcessedEventJpaEntity {
         this.processedAt = Instant.now();
     }
 
+    /**
+     * Identificador do evento processado.
+     */
     public String getEventId() { return eventId; }
 }

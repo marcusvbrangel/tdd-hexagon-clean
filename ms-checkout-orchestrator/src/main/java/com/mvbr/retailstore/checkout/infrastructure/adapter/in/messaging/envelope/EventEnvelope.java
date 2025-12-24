@@ -8,6 +8,10 @@ import org.apache.kafka.common.header.Header;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
+/**
+ * Envelope padrao para eventos Kafka com payload e headers tipados.
+ * Criado pelo CheckoutEventsConsumer ao receber mensagens.
+ */
 public record EventEnvelope(
         String topic,
         String key,
@@ -24,6 +28,9 @@ public record EventEnvelope(
         String aggregateId
 ) {
 
+    /**
+     * Cria o envelope a partir de um ConsumerRecord do Kafka.
+     */
     public static EventEnvelope from(ConsumerRecord<String, String> record) {
         return new EventEnvelope(
                 record.topic(),
@@ -42,6 +49,9 @@ public record EventEnvelope(
         );
     }
 
+    /**
+     * Le um header do Kafka convertendo para string.
+     */
     private static Optional<String> header(ConsumerRecord<String, String> record, String name) {
         Header header = record.headers().lastHeader(name);
         if (header == null) {
@@ -51,14 +61,23 @@ public record EventEnvelope(
         return (value == null || value.isBlank()) ? Optional.empty() : Optional.of(value);
     }
 
+    /**
+     * Retorna o aggregateId, usando a key do Kafka como fallback.
+     */
     public String aggregateIdOrKey() {
         return (aggregateId != null && !aggregateId.isBlank()) ? aggregateId : key;
     }
 
+    /**
+     * Retorna o correlationId, usando o fallback quando nao informado.
+     */
     public String correlationIdOr(String fallback) {
         return (correlationId != null && !correlationId.isBlank()) ? correlationId : fallback;
     }
 
+    /**
+     * Desserializa o payload JSON usando Jackson.
+     */
     public <T> T readPayload(ObjectMapper mapper, Class<T> clazz) {
         try {
             return mapper.readValue(payloadJson, clazz);
