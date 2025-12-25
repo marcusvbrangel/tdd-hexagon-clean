@@ -6,6 +6,10 @@ import com.mvbr.retailstore.inventory.application.port.in.ReserveInventoryUseCas
 import com.mvbr.retailstore.inventory.application.service.InventoryCommandService;
 import org.springframework.stereotype.Component;
 
+/**
+ * Implementacao simples do caso de uso de reserva.
+ * Mantem a classe fina e delega para o service.
+ */
 @Component
 public class ReserveInventoryUseCaseImpl implements ReserveInventoryUseCase {
 
@@ -15,6 +19,9 @@ public class ReserveInventoryUseCaseImpl implements ReserveInventoryUseCase {
         this.service = service;
     }
 
+    /**
+     * Delegacao direta para o InventoryCommandService.
+     */
     @Override
     public void reserve(ReserveInventoryCommand command, SagaContext sagaContext) {
         service.reserve(command, sagaContext);

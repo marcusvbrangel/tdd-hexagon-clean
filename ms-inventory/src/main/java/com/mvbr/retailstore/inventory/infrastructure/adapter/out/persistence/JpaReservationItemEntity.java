@@ -11,6 +11,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+/**
+ * Entidade JPA para itens de uma reserva.
+ */
 @Entity
 @Table(
         name = "inventory_reservation_items",
@@ -45,5 +48,8 @@ public class JpaReservationItemEntity {
     public String getProductId() { return productId; }
     public long getQuantity() { return quantity; }
 
+    /**
+     * Define a reserva pai (usado pelo agregador JPA).
+     */
     public void setReservation(JpaReservationEntity reservation) { this.reservation = reservation; }
 }

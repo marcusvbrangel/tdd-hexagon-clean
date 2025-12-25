@@ -12,6 +12,9 @@ import jakarta.persistence.Version;
 
 import java.time.Instant;
 
+/**
+ * Entidade JPA da outbox para publicacao confiavel de eventos.
+ */
 @Entity
 @Table(
         name = "outbox_messages",
@@ -117,6 +120,9 @@ public class OutboxMessageJpaEntity {
     public int getRetryCount() { return retryCount; }
     public Instant getNextAttemptAt() { return nextAttemptAt; }
 
+    /**
+     * Marca a mensagem como publicada com timestamp.
+     */
     public void markPublished() {
         this.status = Status.PUBLISHED.name();
         this.publishedAt = Instant.now();
@@ -124,6 +130,9 @@ public class OutboxMessageJpaEntity {
         this.nextAttemptAt = this.publishedAt;
     }
 
+    /**
+     * Marca falha e agenda novo envio com backoff.
+     */
     public void markFailed(String error) {
         this.status = Status.FAILED.name();
         this.lastError = error;
@@ -131,10 +140,16 @@ public class OutboxMessageJpaEntity {
         this.nextAttemptAt = computeBackoff();
     }
 
+    /**
+     * Marca como em processamento antes do envio ao Kafka.
+     */
     public void markInProgress() {
         this.status = Status.IN_PROGRESS.name();
     }
 
+    /**
+     * Calcula backoff exponencial baseado no numero de falhas.
+     */
     private Instant computeBackoff() {
         long baseSeconds = 5;
         long maxSeconds = 3600;

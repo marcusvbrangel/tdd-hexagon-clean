@@ -7,6 +7,9 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 
+/**
+ * Entidade JPA que registra comandos ja processados (idempotencia).
+ */
 @Entity
 @Table(name = "processed_messages")
 public class JpaProcessedMessageEntity {

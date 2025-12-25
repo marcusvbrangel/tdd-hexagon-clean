@@ -7,8 +7,14 @@ import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 
+/**
+ * Repositorio Spring Data para estoque com lock pessimista.
+ */
 public interface JpaInventorySpringDataRepository extends JpaRepository<JpaInventoryItemEntity, String> {
 
+    /**
+     * Carrega os itens e aplica FOR UPDATE para evitar over-sell.
+     */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select i from JpaInventoryItemEntity i where i.productId in :productIds")
     List<JpaInventoryItemEntity> lockByProductIds(List<String> productIds);

@@ -1,5 +1,9 @@
 package com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.headers;
 
+/**
+ * Constantes dos headers Kafka usados entre servicos.
+ * Deve permanecer alinhado com ms-checkout-orchestrator.
+ */
 public final class HeaderNames {
 
     private HeaderNames() {

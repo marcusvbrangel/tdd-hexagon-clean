@@ -17,6 +17,10 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 
+/**
+ * Job que publica mensagens da outbox no Kafka.
+ * Fluxo: tabela outbox -> OutboxRelay -> Kafka.
+ */
 @Component
 @ConditionalOnProperty(prefix = "outbox.relay", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class OutboxRelay {
@@ -35,6 +39,9 @@ public class OutboxRelay {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * Varre mensagens pendentes e tenta publicar uma a uma.
+     */
     @Scheduled(fixedDelayString = "${outbox.relay.fixedDelayMs:10000}")
     @Transactional
     public void tick() {
@@ -76,6 +83,9 @@ public class OutboxRelay {
         }
     }
 
+    /**
+     * Converte JSON de headers persistidos em mapa.
+     */
     private Map<String, String> parseHeaders(OutboxMessageJpaEntity msg) {
         try {
             return objectMapper.readValue(msg.getHeadersJson(), new TypeReference<>() {

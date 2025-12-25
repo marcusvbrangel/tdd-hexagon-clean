@@ -12,6 +12,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Adapter de saida que grava eventos na outbox para publicacao confiavel.
+ */
 @Component
 public class OutboxEventPublisherAdapter implements EventPublisher {
 
@@ -23,6 +26,9 @@ public class OutboxEventPublisherAdapter implements EventPublisher {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * Serializa payload e headers e persiste na tabela outbox.
+     */
     @Override
     @Transactional
     public void publish(String topic,
@@ -55,6 +61,9 @@ public class OutboxEventPublisherAdapter implements EventPublisher {
         }
     }
 
+    /**
+     * Tenta extrair eventId do DTO (metodo eventId()).
+     */
     private Optional<String> extractEventId(Object payload) {
         try {
             var m = payload.getClass().getMethod("eventId");

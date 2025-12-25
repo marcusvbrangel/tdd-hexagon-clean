@@ -33,6 +33,10 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Logger;
 
+/**
+ * Orquestra comandos de inventory com idempotencia, lock de estoque e outbox.
+ * Centraliza a regra de negocio para reserva/liberacao.
+ */
 @Component
 public class InventoryCommandService {
 
@@ -58,6 +62,9 @@ public class InventoryCommandService {
         this.properties = properties;
     }
 
+    /**
+     * Reserva estoque de forma atomica (tudo ou nada) e publica inventory.reserved/rejected.
+     */
     @Transactional
     public void reserve(ReserveInventoryCommand cmd, SagaContext ctx) {
         String orderId = cmd.orderId();
@@ -123,6 +130,9 @@ public class InventoryCommandService {
         publishReserved(reservation, ctx);
     }
 
+    /**
+     * Libera reserva e publica inventory.released de forma idempotente.
+     */
     @Transactional
     public void release(ReleaseInventoryCommand cmd, SagaContext ctx) {
         String orderId = cmd.orderId();
@@ -173,12 +183,18 @@ public class InventoryCommandService {
         publishReleased(orderId, reason, ctx);
     }
 
+    /**
+     * Marca a reserva como rejeitada e publica o evento correspondente.
+     */
     private void reject(Reservation reservation, SagaContext ctx, String orderId, String reason) {
         reservation.markRejected(reason);
         reservationRepo.save(reservation);
         publishRejected(orderId, reason, ctx);
     }
 
+    /**
+     * Reenvia o resultado conhecido quando o comando chega duplicado.
+     */
     private void republishReserveOutcome(Reservation reservation, SagaContext ctx) {
         if (reservation.getStatus() == ReservationStatus.RESERVED) {
             publishReserved(reservation, ctx);
@@ -191,6 +207,9 @@ public class InventoryCommandService {
         publishRejected(reservation.getOrderId().value(), "PENDING_STATE", ctx);
     }
 
+    /**
+     * Publica inventory.reserved via outbox com headers de saga.
+     */
     private void publishReserved(Reservation reservation, SagaContext ctx) {
         List<InventoryReservedEventV1.Item> items = reservation.getItems().stream()
                 .map(i -> new InventoryReservedEventV1.Item(i.productId().value(), i.quantity().value()))
@@ -218,6 +237,9 @@ public class InventoryCommandService {
         );
     }
 
+    /**
+     * Publica inventory.rejected via outbox.
+     */
     private void publishRejected(String orderId, String reason, SagaContext ctx) {
         Instant now = Instant.now();
         String eventId = UUID.randomUUID().toString();
@@ -239,6 +261,9 @@ public class InventoryCommandService {
         );
     }
 
+    /**
+     * Publica inventory.released via outbox.
+     */
     private void publishReleased(String orderId, String reason, SagaContext ctx) {
         Instant now = Instant.now();
         String eventId = UUID.randomUUID().toString();

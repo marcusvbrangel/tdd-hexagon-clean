@@ -13,6 +13,9 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Entidade JPA para reservas de estoque.
+ */
 @Entity
 @Table(
         name = "inventory_reservations",
@@ -82,11 +85,17 @@ public class JpaReservationEntity {
     public void setLastCommandId(String lastCommandId) { this.lastCommandId = lastCommandId; }
     public void setCorrelationId(String correlationId) { this.correlationId = correlationId; }
 
+    /**
+     * Adiciona item vinculando com a reserva.
+     */
     public void addItem(JpaReservationItemEntity item) {
         items.add(item);
         item.setReservation(this);
     }
 
+    /**
+     * Remove itens atuais antes de reconstruir a lista.
+     */
     public void clearItems() {
         items.forEach(i -> i.setReservation(null));
         items.clear();

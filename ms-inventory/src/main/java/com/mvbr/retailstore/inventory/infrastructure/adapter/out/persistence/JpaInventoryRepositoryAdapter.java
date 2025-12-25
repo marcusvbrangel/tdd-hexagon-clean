@@ -20,6 +20,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+/**
+ * Adapter JPA que implementa as tres portas de persistencia do inventory.
+ * Agrupa repositorios para reduzir boilerplate no MVP.
+ */
 @Component
 public class JpaInventoryRepositoryAdapter implements InventoryItemRepository, ReservationRepository, ProcessedMessageRepository {
 
@@ -35,6 +39,9 @@ public class JpaInventoryRepositoryAdapter implements InventoryItemRepository, R
         this.processedRepo = processedRepo;
     }
 
+    /**
+     * Carrega itens com lock pessimista e cria itens "virtuais" quando faltam.
+     */
     @Override
     public List<InventoryItem> lockByProductIds(List<String> productIds) {
         if (productIds == null || productIds.isEmpty()) {
@@ -57,11 +64,17 @@ public class JpaInventoryRepositoryAdapter implements InventoryItemRepository, R
         return result;
     }
 
+    /**
+     * Busca item por produto sem lock.
+     */
     @Override
     public Optional<InventoryItem> findByProductId(String productId) {
         return inventoryRepo.findById(productId).map(this::toDomain);
     }
 
+    /**
+     * Persiste alteracoes no item de estoque.
+     */
     @Override
     public InventoryItem save(InventoryItem item) {
         JpaInventoryItemEntity e = new JpaInventoryItemEntity(
@@ -74,11 +87,17 @@ public class JpaInventoryRepositoryAdapter implements InventoryItemRepository, R
         return item;
     }
 
+    /**
+     * Busca reserva por orderId.
+     */
     @Override
     public Optional<Reservation> findByOrderId(String orderId) {
         return reservationRepo.findByOrderId(orderId).map(this::toDomain);
     }
 
+    /**
+     * Persiste reserva e seus itens (reconstrucao completa).
+     */
     @Override
     public Reservation save(Reservation reservation) {
         JpaReservationEntity e = reservationRepo.findById(reservation.getReservationId())
@@ -105,6 +124,9 @@ public class JpaInventoryRepositoryAdapter implements InventoryItemRepository, R
         return reservation;
     }
 
+    /**
+     * Busca reservas vencidas com limite de lote.
+     */
     @Override
     public List<Reservation> findExpiredReserved(Instant now, int limit) {
         List<JpaReservationEntity> list = reservationRepo.findExpiredReserved(now);
@@ -114,6 +136,9 @@ public class JpaInventoryRepositoryAdapter implements InventoryItemRepository, R
         return list.stream().map(this::toDomain).toList();
     }
 
+    /**
+     * Marca mensagem como processada, retornando false em duplicidade.
+     */
     @Override
     public boolean markProcessedIfFirst(String messageId, String messageType, String aggregateId, Instant processedAt) {
         try {
@@ -124,10 +149,16 @@ public class JpaInventoryRepositoryAdapter implements InventoryItemRepository, R
         }
     }
 
+    /**
+     * Converte entidade JPA em objeto de dominio.
+     */
     private InventoryItem toDomain(JpaInventoryItemEntity e) {
         return new InventoryItem(new ProductId(e.getProductId()), e.getOnHand(), e.getReserved(), e.getUpdatedAt());
     }
 
+    /**
+     * Converte entidade JPA de reserva em objeto de dominio.
+     */
     private Reservation toDomain(JpaReservationEntity e) {
         Reservation r = new Reservation(
                 e.getReservationId(),

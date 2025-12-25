@@ -9,6 +9,9 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.logging.Logger;
 
+/**
+ * Job de limpeza de mensagens publicadas antigas.
+ */
 @Component
 @ConditionalOnProperty(prefix = "outbox.retention", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class OutboxRetentionJob {
@@ -21,6 +24,9 @@ public class OutboxRetentionJob {
         this.outboxRepository = outboxRepository;
     }
 
+    /**
+     * Remove mensagens publicadas mais antigas que a janela de retencao.
+     */
     @Scheduled(cron = "${outbox.retention.cron:0 0 3 * * *}")
     @Transactional
     public void cleanupPublished() {

@@ -21,6 +21,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.logging.Logger;
 
+/**
+ * Adaptador de entrada Kafka: recebe comandos de inventory e roteia para os use cases.
+ */
 @Component
 public class InventoryCommandConsumer {
 
@@ -38,6 +41,9 @@ public class InventoryCommandConsumer {
         this.releaseInventoryUseCase = releaseInventoryUseCase;
     }
 
+    /**
+     * Listener principal do topico de comandos de inventory.
+     */
     @KafkaListener(
             topics = TopicNames.INVENTORY_COMMANDS_V1,
             groupId = "${spring.kafka.consumer.group-id:ms-inventory}"
@@ -65,6 +71,9 @@ public class InventoryCommandConsumer {
         }
     }
 
+    /**
+     * Converte payload e dispara o caso de uso de reserva.
+     */
     private void handleReserve(String payload, SagaContext sagaContext) throws Exception {
         InventoryReserveCommandV1 dto = objectMapper.readValue(payload, InventoryReserveCommandV1.class);
 
@@ -77,12 +86,18 @@ public class InventoryCommandConsumer {
         reserveInventoryUseCase.reserve(cmd, sagaContext);
     }
 
+    /**
+     * Converte payload e dispara o caso de uso de liberacao.
+     */
     private void handleRelease(String payload, SagaContext sagaContext) throws Exception {
         InventoryReleaseCommandV1 dto = objectMapper.readValue(payload, InventoryReleaseCommandV1.class);
         ReleaseInventoryCommand cmd = new ReleaseInventoryCommand(dto.commandId(), dto.orderId(), dto.reason());
         releaseInventoryUseCase.release(cmd, sagaContext);
     }
 
+    /**
+     * Extrai headers relevantes para rastrear a saga.
+     */
     private SagaContext buildSagaContext(ConsumerRecord<String, String> record) {
         String sagaId = header(record, HeaderNames.SAGA_ID).orElse(null);
         String correlationId = header(record, HeaderNames.CORRELATION_ID).orElse(null);
@@ -95,6 +110,9 @@ public class InventoryCommandConsumer {
         return new SagaContext(sagaId, correlationId, causationId, sagaName, sagaStep, aggregateType, aggregateId);
     }
 
+    /**
+     * Le um header do Kafka e converte para String.
+     */
     private Optional<String> header(ConsumerRecord<String, String> record, String name) {
         Header header = record.headers().lastHeader(name);
         if (header == null) {

@@ -1,5 +1,8 @@
 package com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging;
 
+/**
+ * Nomes dos topicos Kafka usados pelo ms-inventory.
+ */
 public final class TopicNames {
 
     private TopicNames() {

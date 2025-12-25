@@ -10,6 +10,9 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Varre reservas expiradas e aciona liberacao automatica.
+ */
 @Component
 public class ReservationExpirationService {
 
@@ -22,6 +25,9 @@ public class ReservationExpirationService {
         this.inventoryService = inventoryService;
     }
 
+    /**
+     * Processa um lote de reservas vencidas.
+     */
     public void expireDue(int batchSize) {
         List<Reservation> expired = reservationRepo.findExpiredReserved(Instant.now(), batchSize);
         for (Reservation r : expired) {

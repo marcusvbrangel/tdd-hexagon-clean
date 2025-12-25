@@ -6,6 +6,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Job agendado que dispara expiracao de reservas.
+ */
 @Component
 public class ReservationExpirationJob {
 
@@ -17,6 +20,9 @@ public class ReservationExpirationJob {
         this.properties = properties;
     }
 
+    /**
+     * Executa a varredura periodica de reservas vencidas.
+     */
     @Scheduled(fixedDelayString = "${inventory.expiration.scanFixedDelayMs:5000}")
     @Transactional
     public void tick() {

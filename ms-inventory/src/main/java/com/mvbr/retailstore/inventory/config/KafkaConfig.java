@@ -17,9 +17,15 @@ import org.springframework.kafka.core.ProducerFactory;
 
 import java.util.Map;
 
+/**
+ * Configuracao de infraestrutura Kafka (topics e producer).
+ */
 @Configuration
 public class KafkaConfig {
 
+    /**
+     * Cria topicos do inventory no ambiente local quando autoCreate esta habilitado.
+     */
     @Bean
     @ConditionalOnProperty(prefix = "kafka.topics", name = "autoCreate", havingValue = "true", matchIfMissing = true)
     public KafkaAdmin.NewTopics inventoryTopics(
@@ -32,6 +38,9 @@ public class KafkaConfig {
         );
     }
 
+    /**
+     * Helper para padronizar criacao de topicos.
+     */
     private NewTopic topic(String name, int partitions, short replicationFactor) {
         return TopicBuilder.name(name)
                 .partitions(partitions)
@@ -39,6 +48,9 @@ public class KafkaConfig {
                 .build();
     }
 
+    /**
+     * ProducerFactory baseado nas propriedades do Spring Boot.
+     */
     @Bean
     public ProducerFactory<String, String> producerFactory(
             KafkaProperties kafkaProperties,
@@ -49,6 +61,9 @@ public class KafkaConfig {
         return new DefaultKafkaProducerFactory<>(props);
     }
 
+    /**
+     * KafkaTemplate usado pelo OutboxRelay.
+     */
     @Bean
     public KafkaTemplate<String, String> kafkaTemplate(ProducerFactory<String, String> pf) {
         return new KafkaTemplate<>(pf);

@@ -7,6 +7,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Builder de headers para eventos de inventory.
+ * Garante metadados padrao e propagacao de contexto de saga.
+ */
 public final class SagaHeaders {
 
     private static final String PRODUCER = "ms-inventory";
@@ -17,6 +21,9 @@ public final class SagaHeaders {
     private SagaHeaders() {
     }
 
+    /**
+     * Monta o mapa de headers para publicacao de eventos.
+     */
     public static Map<String, String> forEvent(String eventId,
                                                String eventType,
                                                String occurredAt,
@@ -83,6 +90,9 @@ public final class SagaHeaders {
         return headers;
     }
 
+    /**
+     * Helper para evitar headers vazios.
+     */
     private static void putIfNotBlank(Map<String, String> headers, String key, String value) {
         if (value != null && !value.isBlank()) {
             headers.put(key, value);

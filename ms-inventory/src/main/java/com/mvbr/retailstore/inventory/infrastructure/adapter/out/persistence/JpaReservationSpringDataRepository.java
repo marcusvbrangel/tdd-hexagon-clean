@@ -7,10 +7,19 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repositorio Spring Data para reservas.
+ */
 public interface JpaReservationSpringDataRepository extends JpaRepository<JpaReservationEntity, String> {
 
+    /**
+     * Busca a reserva pelo orderId (chave unica).
+     */
     Optional<JpaReservationEntity> findByOrderId(String orderId);
 
+    /**
+     * Lista reservas vencidas e ainda ativas.
+     */
     @Query("""
            select r from JpaReservationEntity r
            where r.status = 'RESERVED'

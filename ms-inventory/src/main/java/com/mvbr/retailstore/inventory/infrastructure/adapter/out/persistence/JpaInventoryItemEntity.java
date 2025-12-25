@@ -7,6 +7,9 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 
+/**
+ * Entidade JPA para o saldo de estoque por produto.
+ */
 @Entity
 @Table(name = "inventory_items")
 public class JpaInventoryItemEntity {
