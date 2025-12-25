@@ -1,4 +1,9 @@
 package com.mvbr.retailstore.inventory.application.port.in;
 
-public class ReleaseInventoryUseCase {
+import com.mvbr.retailstore.inventory.application.command.ReleaseInventoryCommand;
+import com.mvbr.retailstore.inventory.application.command.SagaContext;
+
+public interface ReleaseInventoryUseCase {
+
+    void release(ReleaseInventoryCommand command, SagaContext sagaContext);
 }

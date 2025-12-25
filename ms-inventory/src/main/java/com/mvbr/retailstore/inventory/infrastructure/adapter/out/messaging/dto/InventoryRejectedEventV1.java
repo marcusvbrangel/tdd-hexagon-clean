@@ -1,4 +1,9 @@
 package com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto;
 
-public class InventoryRejectedEventV1 {
+public record InventoryRejectedEventV1(
+        String eventId,
+        String occurredAt,
+        String orderId,
+        String reason
+) {
 }

@@ -1,4 +1,9 @@
 package com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto;
 
-public class InventoryReleaseCommandV1 {
+public record InventoryReleaseCommandV1(
+        String commandId,
+        String occurredAt,
+        String orderId,
+        String reason
+) {
 }

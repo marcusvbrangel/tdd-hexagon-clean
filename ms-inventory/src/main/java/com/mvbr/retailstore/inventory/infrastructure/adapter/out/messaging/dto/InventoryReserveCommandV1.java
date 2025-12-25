@@ -1,4 +1,14 @@
 package com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto;
 
-public class InventoryReserveCommandV1 {
+import java.util.List;
+
+public record InventoryReserveCommandV1(
+        String commandId,
+        String occurredAt,
+        String orderId,
+        List<Item> items
+) {
+
+    public record Item(String productId, long quantity) {
+    }
 }

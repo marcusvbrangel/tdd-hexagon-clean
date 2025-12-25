@@ -1,4 +1,9 @@
 package com.mvbr.retailstore.inventory.application.port.in;
 
-public class ReserveInventoryUseCase {
+import com.mvbr.retailstore.inventory.application.command.ReserveInventoryCommand;
+import com.mvbr.retailstore.inventory.application.command.SagaContext;
+
+public interface ReserveInventoryUseCase {
+
+    void reserve(ReserveInventoryCommand command, SagaContext sagaContext);
 }

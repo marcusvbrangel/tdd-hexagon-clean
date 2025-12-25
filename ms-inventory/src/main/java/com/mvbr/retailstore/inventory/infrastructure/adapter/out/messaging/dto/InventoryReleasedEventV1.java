@@ -1,4 +1,9 @@
 package com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto;
 
-public class InventoryReleasedEventV1 {
+public record InventoryReleasedEventV1(
+        String eventId,
+        String occurredAt,
+        String orderId,
+        String reason
+) {
 }

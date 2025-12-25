@@ -1,4 +1,9 @@
 package com.mvbr.retailstore.inventory.domain.model;
 
-public class ReservationStatus {
+public enum ReservationStatus {
+    PENDING,
+    RESERVED,
+    REJECTED,
+    RELEASED,
+    EXPIRED
 }

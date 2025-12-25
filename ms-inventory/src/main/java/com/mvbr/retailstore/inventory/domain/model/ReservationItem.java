@@ -1,4 +1,4 @@
 package com.mvbr.retailstore.inventory.domain.model;
 
-public class ReservationItem {
+public record ReservationItem(ProductId productId, Quantity quantity) {
 }
