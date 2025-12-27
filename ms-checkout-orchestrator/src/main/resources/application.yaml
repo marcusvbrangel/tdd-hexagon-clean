@@ -87,9 +87,9 @@ outbox:
 # =============================================================================================
 saga:
   timeouts:
-    inventorySeconds: ${SAGA_TIMEOUT_INVENTORY_SECONDS:30}
-    paymentSeconds: ${SAGA_TIMEOUT_PAYMENT_SECONDS:120}
-    orderCompleteSeconds: ${SAGA_TIMEOUT_ORDER_COMPLETE_SECONDS:60}
+    inventorySeconds: ${SAGA_TIMEOUT_INVENTORY_SECONDS:600}              # 30
+    paymentSeconds: ${SAGA_TIMEOUT_PAYMENT_SECONDS:600}                 # 120
+    orderCompleteSeconds: ${SAGA_TIMEOUT_ORDER_COMPLETE_SECONDS:600}     # 60
     scanFixedDelayMs: ${SAGA_TIMEOUT_SCAN_FIXED_DELAY_MS:5000}
   retries:
     inventoryMax: ${SAGA_RETRIES_INVENTORY_MAX:2}
