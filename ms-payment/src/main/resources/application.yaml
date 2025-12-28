@@ -4,7 +4,7 @@ server:
 
 spring:
   application:
-    name: ms-customer
+    name: ms-payment
 
   # =============================================================================================
   # POSTGRES CONFIGURATION
@@ -14,12 +14,13 @@ spring:
       connection-timeout: ${DATASOURCE_CONNECTION_TIMEOUT:20000}
       maximum-pool-size: ${DATASOURCE_MAX_POOL_SIZE:5}
 
-    url: ${DATASOURCE_URL:jdbc:postgresql://localhost:5432/ms-customer}
+    url: ${DATASOURCE_URL:jdbc:postgresql://localhost:5432/ms-payment}
     username: ${DATASOURCE_USERNAME:postgres}
     password: ${DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
   jpa:
+    open-in-view: false
     show-sql: ${SHOW_SQL:false}
     hibernate:
       ddl-auto: none
@@ -32,33 +33,65 @@ spring:
   # =============================================================================================
   # FLYWAY CONFIGURATION
   # =============================================================================================
-  #  flyway:
-  #    enabled: true
-  #    baseline-on-migrate: true
-  #    locations: classpath:db/migration
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
 
 
   # =============================================================================================
   # KAFKA CONFIGURATION
   # =============================================================================================
   kafka:
-    #bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
-    # Producer configurations
     producer:
-      # Critical producer settings (high durability)
-      critical:
-        acks: all
-        enable-idempotence: true
-        retries: 2147483647  # Integer.MAX_VALUE
-        delivery-timeout-ms: 120000
-        request-timeout-ms: 30000
-        max-in-flight-requests-per-connection: 5
-        compression-type: snappy
-        linger-ms: 10
-        batch-size: 16384
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+        retries: 2147483647
+        delivery.timeout.ms: 120000
+        request.timeout.ms: 30000
+        compression.type: snappy
+        linger.ms: 5
 
-    # Topics
-#    topics:
-#      customer-approved: ${KAFKA_TOPIC_PAYMENT_APPROVED:customer.approved.v1}
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP_ID:ms-payment}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+# =============================================================================================
+# TOPICS (auto-create in DEV via KafkaAdmin.NewTopics)
+# =============================================================================================
+kafka:
+  topics:
+    autoCreate: ${KAFKA_TOPICS_AUTO_CREATE:true}
+    partitions: ${KAFKA_TOPICS_PARTITIONS:3}
+    replicationFactor: ${KAFKA_TOPICS_REPLICATION_FACTOR:1}
+
+# =============================================================================================
+# OUTBOX SETTINGS
+# =============================================================================================
+outbox:
+  relay:
+    enabled: ${OUTBOX_RELAY_ENABLED:true}
+    fixedDelayMs: ${OUTBOX_RELAY_FIXED_DELAY_MS:10000}
+
+  retention:
+    enabled: ${OUTBOX_RETENTION_ENABLED:true}
+    cron: ${OUTBOX_RETENTION_CRON:0 0 3 * * *}
+
+# =============================================================================================
+# STRIPE SETTINGS
+# =============================================================================================
+stripe:
+  apiKey: ${STRIPE_API_KEY:}
+  webhookSecret: ${STRIPE_WEBHOOK_SECRET:}
+  connectAccount: ${STRIPE_CONNECT_ACCOUNT:}
+  defaultPaymentMethodId: ${STRIPE_DEFAULT_PAYMENT_METHOD_ID:pm_card_visa}
+  captureMethod: ${STRIPE_CAPTURE_METHOD:manual}
+

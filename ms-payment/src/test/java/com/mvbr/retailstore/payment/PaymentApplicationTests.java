@@ -1,13 +1,12 @@
-package com.mvbr.retailstore.customer;
+package com.mvbr.retailstore.payment;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class MsPaymentApplicationTests {
+class PaymentApplicationTests {
 
-	@Test
-	void contextLoads() {
-	}
-
+    @Test
+    void contextLoads() {
+    }
 }
