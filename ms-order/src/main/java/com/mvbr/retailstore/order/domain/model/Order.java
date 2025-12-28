@@ -7,6 +7,7 @@ import com.mvbr.retailstore.order.domain.event.OrderConfirmedEvent;
 import com.mvbr.retailstore.order.domain.event.OrderPlacedEvent;
 import com.mvbr.retailstore.order.domain.exception.DomainException;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -20,6 +21,8 @@ public class Order {
     private final List<OrderItem> items;
     private Money total;
     private Money discount;
+    private String currency;
+    private Instant createdAt;
     private final List<DomainEvent> events;
 
     public static Builder builder() {
@@ -38,6 +41,8 @@ public class Order {
 
         this.discount = Money.zero();
         this.total = Money.zero();
+        this.currency = null;
+        this.createdAt = null;
 
         this.events = new ArrayList<>();
     }
@@ -69,7 +74,7 @@ public class Order {
     /**
      * Coloca o pedido e inicia a saga (via evento OrderPlaced).
      */
-    public void place() {
+    public void place(String currency) {
         ensureStatus(OrderStatus.DRAFT);
 
         if (items.isEmpty()) {
@@ -77,10 +82,20 @@ public class Order {
         }
 
         recalculateTotal();
+        String normalizedCurrency = normalizeCurrency(currency);
 
         this.status = OrderStatus.PLACED;
 
-        registerEvent(OrderPlacedEvent.of(orderId, customerId, placedItemsSnapshot()));
+        OrderPlacedEvent event = OrderPlacedEvent.of(
+                orderId,
+                customerId,
+                placedItemsSnapshot(),
+                total.toString(),
+                normalizedCurrency
+        );
+        this.currency = normalizedCurrency;
+        this.createdAt = event.occurredAt();
+        registerEvent(event);
     }
 
     /**
@@ -108,7 +123,10 @@ public class Order {
      * pago + estoque efetivado + envio concluído + nota fiscal emitida/enviada.
      */
     public void complete() {
-        ensureStatus(OrderStatus.CONFIRMED);
+        if (this.status == OrderStatus.COMPLETED) {
+            return;
+        }
+        ensureStatusIn(OrderStatus.PLACED, OrderStatus.CONFIRMED);
         this.status = OrderStatus.COMPLETED;
         registerEvent(OrderCompletedEvent.of(orderId, customerId));
     }
@@ -161,6 +179,13 @@ public class Order {
                 .toList();
     }
 
+    private String normalizeCurrency(String currency) {
+        if (currency == null || currency.isBlank()) {
+            throw new DomainException("Currency cannot be null or blank");
+        }
+        return currency.trim().toUpperCase();
+    }
+
     // ============================
     // Reidratação
     // ============================
@@ -170,7 +195,9 @@ public class Order {
             CustomerId customerId,
             OrderStatus status,
             List<OrderItem> items,
-            Money discount
+            Money discount,
+            String currency,
+            Instant createdAt
     ) {
         if (orderId == null) throw new DomainException("Order ID cannot be null");
         if (customerId == null) throw new DomainException("Customer ID cannot be null");
@@ -186,6 +213,8 @@ public class Order {
         order.items.addAll(items);
         order.discount = discount;
         order.recalculateTotal();
+        order.currency = (currency == null || currency.isBlank()) ? null : currency.trim().toUpperCase();
+        order.createdAt = createdAt;
         order.status = status;
 
         return order;
@@ -226,6 +255,10 @@ public class Order {
     public Money getDiscount() { return discount; }
 
     public Money getTotal() { return total; }
+
+    public String getCurrency() { return currency; }
+
+    public Instant getCreatedAt() { return createdAt; }
 
     // ============================
     // Builder

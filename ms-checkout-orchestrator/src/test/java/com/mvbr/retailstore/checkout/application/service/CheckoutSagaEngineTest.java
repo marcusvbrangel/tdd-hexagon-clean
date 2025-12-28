@@ -12,9 +12,12 @@ import com.mvbr.retailstore.checkout.infrastructure.adapter.in.messaging.envelop
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.TopicNames;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.InventoryRejectedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.InventoryReservedEventV1;
+import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.InventoryCommittedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.OrderCompletedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.OrderPlacedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentAuthorizedEventV1;
+import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentCapturedEventV1;
+import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentCaptureFailedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentDeclinedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.headers.HeaderNames;
 import org.junit.jupiter.api.Test;
@@ -59,8 +62,9 @@ class CheckoutSagaEngineTest {
 
         var payloadCmd = (com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.InventoryReserveCommandV1)
                 command.payload();
-        assertThat(command.headers().get(HeaderNames.EVENT_ID)).isEqualTo(payloadCmd.commandId());
         assertThat(command.headers().get(HeaderNames.COMMAND_ID)).isEqualTo(payloadCmd.commandId());
+        assertThat(command.headers().get(HeaderNames.EVENT_ID)).isNotBlank()
+                .isNotEqualTo(payloadCmd.commandId());
         assertThat(command.headers().get(HeaderNames.CORRELATION_ID)).isEqualTo("order-1");
         assertThat(command.headers().get(HeaderNames.CAUSATION_ID)).isEqualTo("evt-1");
         assertThat(command.headers().get(HeaderNames.SAGA_STEP)).isEqualTo("WAIT_INVENTORY");
@@ -91,7 +95,9 @@ class CheckoutSagaEngineTest {
         assertThat(payload.orderId()).isEqualTo("order-1");
         assertThat(payload.amount()).isEqualTo("22.50");
         assertThat(payload.currency()).isEqualTo("BRL");
-        assertThat(command.headers().get(HeaderNames.EVENT_ID)).isEqualTo(payload.commandId());
+        assertThat(command.headers().get(HeaderNames.EVENT_ID)).isNotBlank()
+                .isNotEqualTo(payload.commandId());
+        assertThat(command.headers().get(HeaderNames.COMMAND_ID)).isEqualTo(payload.commandId());
         assertThat(command.headers().get(HeaderNames.CAUSATION_ID)).isEqualTo("evt-2");
         assertThat(command.headers().get(HeaderNames.CORRELATION_ID)).isEqualTo("corr-1");
     }
@@ -123,7 +129,7 @@ class CheckoutSagaEngineTest {
     }
 
     @Test
-    void handle_orderCompleted_marks_saga_complete() throws Exception {
+    void handle_orderCompleted_publishes_payment_capture() throws Exception {
         InMemorySagaRepository sagaRepository = new InMemorySagaRepository();
         InMemoryProcessedEventRepository processedEventRepository = new InMemoryProcessedEventRepository();
         CapturingCommandPublisher publisher = new CapturingCommandPublisher();
@@ -138,9 +144,88 @@ class CheckoutSagaEngineTest {
         engine.handle(envelope("order.completed", "evt-4", "order-1",
                 new OrderCompletedEventV1("evt-4", "2025-01-01T00:00:00Z", "order-1"), "corr-1"));
 
-        assertThat(publisher.published()).hasSize(3);
+        assertThat(publisher.published()).hasSize(4);
+        PublishedCommand capture = publisher.published().getLast();
+        assertThat(capture.commandType()).isEqualTo("payment.capture");
+        CheckoutSaga saga = sagaRepository.get("order-1");
+        assertThat(saga.getStatus()).isEqualTo(SagaStatus.RUNNING);
+        assertThat(saga.getStep()).isEqualTo(SagaStep.WAIT_PAYMENT_CAPTURE);
+    }
+
+    @Test
+    void handle_paymentCaptured_publishes_inventory_commit() throws Exception {
+        InMemorySagaRepository sagaRepository = new InMemorySagaRepository();
+        InMemoryProcessedEventRepository processedEventRepository = new InMemoryProcessedEventRepository();
+        CapturingCommandPublisher publisher = new CapturingCommandPublisher();
+
+        CheckoutSagaEngine engine = newEngine(sagaRepository, processedEventRepository, publisher);
+
+        engine.handle(envelope("order.placed", "evt-1", "order-1", orderPlacedEvent("evt-1", "order-1"), ""));
+        engine.handle(envelope("inventory.reserved", "evt-2", "order-1",
+                new InventoryReservedEventV1("evt-2", "2025-01-01T00:00:00Z", "order-1"), "corr-1"));
+        engine.handle(envelope("payment.authorized", "evt-3", "order-1",
+                new PaymentAuthorizedEventV1("evt-3", "2025-01-01T00:00:00Z", "order-1", "pay-1"), "corr-1"));
+        engine.handle(envelope("order.completed", "evt-4", "order-1",
+                new OrderCompletedEventV1("evt-4", "2025-01-01T00:00:00Z", "order-1"), "corr-1"));
+        engine.handle(envelope("payment.captured", "evt-5", "order-1",
+                new PaymentCapturedEventV1("evt-5", "2025-01-01T00:00:00Z", "order-1", "pay-1", "pi-1"), "corr-1"));
+
+        PublishedCommand commit = publisher.published().getLast();
+        assertThat(commit.commandType()).isEqualTo("inventory.commit");
+
+        CheckoutSaga saga = sagaRepository.get("order-1");
+        assertThat(saga.getStep()).isEqualTo(SagaStep.WAIT_INVENTORY_COMMIT);
+    }
+
+    @Test
+    void handle_inventoryCommitted_marks_saga_complete() throws Exception {
+        InMemorySagaRepository sagaRepository = new InMemorySagaRepository();
+        InMemoryProcessedEventRepository processedEventRepository = new InMemoryProcessedEventRepository();
+        CapturingCommandPublisher publisher = new CapturingCommandPublisher();
+
+        CheckoutSagaEngine engine = newEngine(sagaRepository, processedEventRepository, publisher);
+
+        engine.handle(envelope("order.placed", "evt-1", "order-1", orderPlacedEvent("evt-1", "order-1"), ""));
+        engine.handle(envelope("inventory.reserved", "evt-2", "order-1",
+                new InventoryReservedEventV1("evt-2", "2025-01-01T00:00:00Z", "order-1"), "corr-1"));
+        engine.handle(envelope("payment.authorized", "evt-3", "order-1",
+                new PaymentAuthorizedEventV1("evt-3", "2025-01-01T00:00:00Z", "order-1", "pay-1"), "corr-1"));
+        engine.handle(envelope("order.completed", "evt-4", "order-1",
+                new OrderCompletedEventV1("evt-4", "2025-01-01T00:00:00Z", "order-1"), "corr-1"));
+        engine.handle(envelope("payment.captured", "evt-5", "order-1",
+                new PaymentCapturedEventV1("evt-5", "2025-01-01T00:00:00Z", "order-1", "pay-1", "pi-1"), "corr-1"));
+        engine.handle(envelope("inventory.committed", "evt-6", "order-1",
+                new InventoryCommittedEventV1("evt-6", "2025-01-01T00:00:00Z", "order-1"), "corr-1"));
+
         CheckoutSaga saga = sagaRepository.get("order-1");
         assertThat(saga.getStatus()).isEqualTo(SagaStatus.COMPLETED);
+        assertThat(saga.getStep()).isEqualTo(SagaStep.DONE);
+    }
+
+    @Test
+    void handle_paymentCaptureFailed_publishes_inventory_release() throws Exception {
+        InMemorySagaRepository sagaRepository = new InMemorySagaRepository();
+        InMemoryProcessedEventRepository processedEventRepository = new InMemoryProcessedEventRepository();
+        CapturingCommandPublisher publisher = new CapturingCommandPublisher();
+
+        CheckoutSagaEngine engine = newEngine(sagaRepository, processedEventRepository, publisher);
+
+        engine.handle(envelope("order.placed", "evt-1", "order-1", orderPlacedEvent("evt-1", "order-1"), ""));
+        engine.handle(envelope("inventory.reserved", "evt-2", "order-1",
+                new InventoryReservedEventV1("evt-2", "2025-01-01T00:00:00Z", "order-1"), "corr-1"));
+        engine.handle(envelope("payment.authorized", "evt-3", "order-1",
+                new PaymentAuthorizedEventV1("evt-3", "2025-01-01T00:00:00Z", "order-1", "pay-1"), "corr-1"));
+        engine.handle(envelope("order.completed", "evt-4", "order-1",
+                new OrderCompletedEventV1("evt-4", "2025-01-01T00:00:00Z", "order-1"), "corr-1"));
+        engine.handle(envelope("payment.capture_failed", "evt-5", "order-1",
+                new PaymentCaptureFailedEventV1("evt-5", "2025-01-01T00:00:00Z", "order-1", "pay-1", "pi-1", "failed"),
+                "corr-1"));
+
+        PublishedCommand release = publisher.published().getLast();
+        assertThat(release.commandType()).isEqualTo("inventory.release");
+
+        CheckoutSaga saga = sagaRepository.get("order-1");
+        assertThat(saga.getStatus()).isEqualTo(SagaStatus.CANCELED);
         assertThat(saga.getStep()).isEqualTo(SagaStep.DONE);
     }
 
@@ -211,6 +296,41 @@ class CheckoutSagaEngineTest {
 
         assertThat(publisher.published()).hasSize(1);
         assertThat(publisher.published().getFirst().commandType()).isEqualTo("inventory.reserve");
+    }
+
+    @Test
+    void handle_inventoryReleased_outside_compensation_is_ignored() throws Exception {
+        InMemorySagaRepository sagaRepository = new InMemorySagaRepository();
+        InMemoryProcessedEventRepository processedEventRepository = new InMemoryProcessedEventRepository();
+        CapturingCommandPublisher publisher = new CapturingCommandPublisher();
+
+        CheckoutSagaEngine engine = newEngine(sagaRepository, processedEventRepository, publisher);
+
+        engine.handle(envelope("order.placed", "evt-1", "order-1", orderPlacedEvent("evt-1", "order-1"), ""));
+        engine.handle(envelope("inventory.reserved", "evt-2", "order-1",
+                new InventoryReservedEventV1("evt-2", "2025-01-01T00:00:00Z", "order-1"), "corr-1"));
+
+        EventEnvelope released = new EventEnvelope(
+                "inventory.events.v1",
+                "order-1",
+                "{}",
+                "evt-3",
+                "inventory.released",
+                "2025-01-01T00:00:00Z",
+                "corr-1",
+                "evt-2",
+                "",
+                "inventory",
+                "EXPIRE",
+                "Order",
+                "order-1"
+        );
+
+        engine.handle(released);
+
+        CheckoutSaga saga = sagaRepository.get("order-1");
+        assertThat(saga.isInventoryReleased()).isFalse();
+        assertThat(saga.getStep()).isEqualTo(SagaStep.WAIT_PAYMENT);
     }
 
     @Test
@@ -314,7 +434,9 @@ class CheckoutSagaEngineTest {
                     .filter(saga -> saga.getStatus() == SagaStatus.RUNNING)
                     .filter(saga -> saga.getStep() == SagaStep.WAIT_INVENTORY
                             || saga.getStep() == SagaStep.WAIT_PAYMENT
-                            || saga.getStep() == SagaStep.WAIT_ORDER_COMPLETION)
+                            || saga.getStep() == SagaStep.WAIT_ORDER_COMPLETION
+                            || saga.getStep() == SagaStep.WAIT_PAYMENT_CAPTURE
+                            || saga.getStep() == SagaStep.WAIT_INVENTORY_COMMIT)
                     .toList();
         }
 

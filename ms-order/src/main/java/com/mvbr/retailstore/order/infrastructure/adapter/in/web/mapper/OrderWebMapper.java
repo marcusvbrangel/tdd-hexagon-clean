@@ -32,6 +32,8 @@ public class OrderWebMapper {
                 order.getStatus(),
                 order.getDiscount().amount(),
                 order.getTotal().amount(),
+                order.getCurrency(),
+                order.getCreatedAt(),
                 items
         );
     }
@@ -42,7 +44,9 @@ public class OrderWebMapper {
                 order.customerId(),
                 OrderStatus.valueOf(order.status()),
                 order.discount(),
-                order.total()
+                order.total(),
+                order.currency(),
+                order.createdAt()
         );
     }
 
@@ -58,6 +62,8 @@ public class OrderWebMapper {
                 OrderStatus.valueOf(order.status()),
                 order.discount(),
                 order.total(),
+                order.currency(),
+                order.createdAt(),
                 items
         );
     }
@@ -75,7 +81,8 @@ public class OrderWebMapper {
         return new PlaceOrderCommand(
                 request.customerId(),
                 items,
-                Optional.of(request.discount())
+                Optional.ofNullable(request.discount()),
+                request.currency()
         );
     }
 

@@ -37,6 +37,8 @@ public class JdbcOrderReadRepository implements OrderReadRepository {
                        o.status,
                        o.discount,
                        o.total,
+                       o.currency,
+                       o.created_at,
                        i.id AS item_id,
                        i.product_id,
                        i.quantity,
@@ -58,6 +60,8 @@ public class JdbcOrderReadRepository implements OrderReadRepository {
                        o.status,
                        o.discount,
                        o.total,
+                       o.currency,
+                       o.created_at,
                        i.id AS item_id,
                        i.product_id,
                        i.quantity,
@@ -83,7 +87,9 @@ public class JdbcOrderReadRepository implements OrderReadRepository {
                        o.customer_id,
                        o.status,
                        o.discount,
-                       o.total
+                       o.total,
+                       o.currency,
+                       o.created_at
                 FROM orders o
                 WHERE 1=1
                 """;
@@ -98,7 +104,9 @@ public class JdbcOrderReadRepository implements OrderReadRepository {
                 rs.getString("customer_id"),
                 rs.getString("status"),
                 rs.getBigDecimal("discount"),
-                rs.getBigDecimal("total")
+                rs.getBigDecimal("total"),
+                rs.getString("currency"),
+                toInstant(rs, "created_at")
         ));
     }
 
@@ -129,6 +137,8 @@ public class JdbcOrderReadRepository implements OrderReadRepository {
                 rs.getString("status"),
                 rs.getBigDecimal("discount"),
                 rs.getBigDecimal("total"),
+                rs.getString("currency"),
+                toInstant(rs, "created_at"),
                 itemId,
                 rs.getString("product_id"),
                 rs.getObject("quantity", Integer.class),
@@ -154,6 +164,8 @@ public class JdbcOrderReadRepository implements OrderReadRepository {
             String status,
             BigDecimal discount,
             BigDecimal total,
+            String currency,
+            java.time.Instant createdAt,
             Long itemId,
             String productId,
             Integer quantity,
@@ -166,6 +178,8 @@ public class JdbcOrderReadRepository implements OrderReadRepository {
         private final String status;
         private final BigDecimal discount;
         private final BigDecimal total;
+        private final String currency;
+        private final java.time.Instant createdAt;
         private final List<OrderItemReadModel> items = new ArrayList<>();
 
         OrderAccumulator(OrderRow row) {
@@ -174,6 +188,8 @@ public class JdbcOrderReadRepository implements OrderReadRepository {
             this.status = row.status();
             this.discount = row.discount();
             this.total = row.total();
+            this.currency = row.currency();
+            this.createdAt = row.createdAt();
         }
 
         void addItem(OrderRow row) {
@@ -196,9 +212,16 @@ public class JdbcOrderReadRepository implements OrderReadRepository {
                     status,
                     discount,
                     total,
+                    currency,
+                    createdAt,
                     List.copyOf(items)
             );
         }
+    }
+
+    private static java.time.Instant toInstant(ResultSet rs, String column) throws SQLException {
+        java.sql.Timestamp ts = rs.getTimestamp(column);
+        return ts == null ? null : ts.toInstant();
     }
 
     private static OrderItemReadModel mapItem(ResultSet rs) throws SQLException {

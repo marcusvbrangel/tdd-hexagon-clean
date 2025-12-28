@@ -7,7 +7,8 @@ import java.util.Optional;
 public record PlaceOrderCommand(
         String customerId,
         List<PlaceOrderItemCommand> items,
-        Optional<BigDecimal> discount
+        Optional<BigDecimal> discount,
+        String currency
 ) {
 
     public PlaceOrderCommand toCreateOrder() {
@@ -22,7 +23,8 @@ public record PlaceOrderCommand(
         return new PlaceOrderCommand(
                 customerId,
                 orderItems,
-                discount
+                discount,
+                currency
         );
     }
 }

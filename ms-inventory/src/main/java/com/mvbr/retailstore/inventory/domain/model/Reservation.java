@@ -110,10 +110,18 @@ public class Reservation {
     }
 
     /**
+     * Indica se a reserva ja foi efetivada.
+     */
+    public boolean isCommitted() {
+        return status == ReservationStatus.COMMITTED;
+    }
+
+    /**
      * Indica se a reserva ja foi encerrada (nao pode mais ser alterada).
      */
     public boolean isClosed() {
         return status == ReservationStatus.RELEASED
+                || status == ReservationStatus.COMMITTED
                 || status == ReservationStatus.REJECTED
                 || status == ReservationStatus.EXPIRED;
     }
@@ -130,6 +138,14 @@ public class Reservation {
      */
     public void markReserved() {
         this.status = ReservationStatus.RESERVED;
+        this.reason = null;
+    }
+
+    /**
+     * Marca a reserva como efetivada (estoque consumido).
+     */
+    public void markCommitted() {
+        this.status = ReservationStatus.COMMITTED;
         this.reason = null;
     }
 

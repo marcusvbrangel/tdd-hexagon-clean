@@ -21,6 +21,7 @@ public class KafkaConfig {
 
     // Topic único (canal) para todos os eventos do domínio Order
     public static final String TOPIC_ORDER_EVENTS_V1 = "order.events.v1";
+    public static final String TOPIC_ORDER_COMMANDS_V1 = "order.commands.v1";
 
     // ============================
     // Topic auto-create (DEV)
@@ -35,8 +36,12 @@ public class KafkaConfig {
                 .partitions(partitions)
                 .replicas(replicationFactor)
                 .build();
+        NewTopic orderCommands = TopicBuilder.name(TOPIC_ORDER_COMMANDS_V1)
+                .partitions(partitions)
+                .replicas(replicationFactor)
+                .build();
 
-        return new KafkaAdmin.NewTopics(orderEvents);
+        return new KafkaAdmin.NewTopics(orderEvents, orderCommands);
     }
 
     // ============================

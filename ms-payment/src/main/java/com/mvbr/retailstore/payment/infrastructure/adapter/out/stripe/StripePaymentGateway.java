@@ -14,6 +14,9 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Currency;
 
 /**
@@ -48,6 +51,13 @@ public class StripePaymentGateway implements PaymentGateway {
                 .setConfirm(true)
                 .setPaymentMethod(paymentMethod);
 
+        builder.setAutomaticPaymentMethods(
+                PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
+                        .setEnabled(true)
+                        .setAllowRedirects(PaymentIntentCreateParams.AutomaticPaymentMethods.AllowRedirects.NEVER)
+                        .build()
+        );
+
         PaymentIntentCreateParams.CaptureMethod captureMethod = resolveCaptureMethod();
         if (captureMethod != null) {
             builder.setCaptureMethod(captureMethod);
@@ -58,7 +68,8 @@ public class StripePaymentGateway implements PaymentGateway {
         putMetadata(builder, "correlationId", request.correlationId());
         putMetadata(builder, "sagaId", request.sagaId());
 
-        RequestOptions.RequestOptionsBuilder options = requestOptions(apiKey, prefixedIdempotencyKey(AUTHORIZE_PREFIX, request.commandId()));
+        String idempotencyKey = buildAuthorizeIdempotencyKey(request, currency, amount, paymentMethod, captureMethod);
+        RequestOptions.RequestOptionsBuilder options = requestOptions(apiKey, idempotencyKey);
 
         try {
             PaymentIntent intent = PaymentIntent.create(builder.build(), options.build());
@@ -76,7 +87,8 @@ public class StripePaymentGateway implements PaymentGateway {
         }
 
         String providerPaymentId = resolveProviderPaymentId(request);
-        RequestOptions.RequestOptionsBuilder options = requestOptions(apiKey, prefixedIdempotencyKey(CAPTURE_PREFIX, request.commandId()));
+        String idempotencyKey = buildCaptureIdempotencyKey(request, providerPaymentId);
+        RequestOptions.RequestOptionsBuilder options = requestOptions(apiKey, idempotencyKey);
 
         try {
             PaymentIntent intent = PaymentIntent.retrieve(providerPaymentId, options.build());
@@ -232,10 +244,66 @@ public class StripePaymentGateway implements PaymentGateway {
         return options;
     }
 
-    private String prefixedIdempotencyKey(String prefix, String commandId) {
+    private String buildAuthorizeIdempotencyKey(PaymentAuthorizationRequest request,
+                                                String currency,
+                                                long amount,
+                                                String paymentMethod,
+                                                PaymentIntentCreateParams.CaptureMethod captureMethod) {
+        String fingerprint = String.join("|",
+                "v1",
+                "amount=" + amount,
+                "currency=" + currency.toLowerCase(),
+                "paymentMethod=" + paymentMethod,
+                "captureMethod=" + (captureMethod == null ? "" : captureMethod.name()),
+                "automaticPaymentMethods=true",
+                "allowRedirects=never",
+                "confirm=true",
+                "orderId=" + nullSafe(request.orderId()),
+                "customerId=" + nullSafe(request.customerId()),
+                "correlationId=" + nullSafe(request.correlationId()),
+                "sagaId=" + nullSafe(request.sagaId())
+        );
+        return prefixedIdempotencyKey(AUTHORIZE_PREFIX, request.commandId(), fingerprint);
+    }
+
+    private String buildCaptureIdempotencyKey(PaymentCaptureRequest request, String providerPaymentId) {
+        String fingerprint = String.join("|",
+                "v1",
+                "providerPaymentId=" + nullSafe(providerPaymentId),
+                "orderId=" + nullSafe(request.orderId()),
+                "paymentId=" + nullSafe(request.paymentId()),
+                "correlationId=" + nullSafe(request.correlationId()),
+                "sagaId=" + nullSafe(request.sagaId())
+        );
+        return prefixedIdempotencyKey(CAPTURE_PREFIX, request.commandId(), fingerprint);
+    }
+
+    private String prefixedIdempotencyKey(String prefix, String commandId, String fingerprint) {
         if (commandId == null || commandId.isBlank()) {
             return null;
         }
-        return prefix + commandId;
+        String suffix = "";
+        if (fingerprint != null && !fingerprint.isBlank()) {
+            suffix = ":" + sha256Hex(fingerprint);
+        }
+        return prefix + commandId + suffix;
+    }
+
+    private String sha256Hex(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(value.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available", e);
+        }
+    }
+
+    private String nullSafe(String value) {
+        return value == null ? "" : value;
     }
 }

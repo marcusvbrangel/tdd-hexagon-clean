@@ -1,13 +1,16 @@
 package com.mvbr.retailstore.inventory.infrastructure.adapter.in.messaging;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mvbr.retailstore.inventory.application.command.CommitInventoryCommand;
 import com.mvbr.retailstore.inventory.application.command.ReleaseInventoryCommand;
 import com.mvbr.retailstore.inventory.application.command.ReserveInventoryCommand;
 import com.mvbr.retailstore.inventory.application.command.ReserveInventoryItemCommand;
 import com.mvbr.retailstore.inventory.application.command.SagaContext;
+import com.mvbr.retailstore.inventory.application.port.in.CommitInventoryUseCase;
 import com.mvbr.retailstore.inventory.application.port.in.ReleaseInventoryUseCase;
 import com.mvbr.retailstore.inventory.application.port.in.ReserveInventoryUseCase;
 import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.TopicNames;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto.InventoryCommitCommandV1;
 import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto.InventoryReleaseCommandV1;
 import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto.InventoryReserveCommandV1;
 import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.headers.HeaderNames;
@@ -32,13 +35,16 @@ public class InventoryCommandConsumer {
     private final ObjectMapper objectMapper;
     private final ReserveInventoryUseCase reserveInventoryUseCase;
     private final ReleaseInventoryUseCase releaseInventoryUseCase;
+    private final CommitInventoryUseCase commitInventoryUseCase;
 
     public InventoryCommandConsumer(ObjectMapper objectMapper,
                                     ReserveInventoryUseCase reserveInventoryUseCase,
-                                    ReleaseInventoryUseCase releaseInventoryUseCase) {
+                                    ReleaseInventoryUseCase releaseInventoryUseCase,
+                                    CommitInventoryUseCase commitInventoryUseCase) {
         this.objectMapper = objectMapper;
         this.reserveInventoryUseCase = reserveInventoryUseCase;
         this.releaseInventoryUseCase = releaseInventoryUseCase;
+        this.commitInventoryUseCase = commitInventoryUseCase;
     }
 
     /**
@@ -63,6 +69,7 @@ public class InventoryCommandConsumer {
             switch (commandType) {
                 case "inventory.reserve" -> handleReserve(record.value(), sagaContext);
                 case "inventory.release" -> handleRelease(record.value(), sagaContext);
+                case "inventory.commit" -> handleCommit(record.value(), sagaContext);
                 default -> log.warning("InventoryCommandConsumer: unknown commandType=" + commandType);
             }
         } catch (Exception e) {
@@ -93,6 +100,15 @@ public class InventoryCommandConsumer {
         InventoryReleaseCommandV1 dto = objectMapper.readValue(payload, InventoryReleaseCommandV1.class);
         ReleaseInventoryCommand cmd = new ReleaseInventoryCommand(dto.commandId(), dto.orderId(), dto.reason());
         releaseInventoryUseCase.release(cmd, sagaContext);
+    }
+
+    /**
+     * Converte payload e dispara o caso de uso de commit.
+     */
+    private void handleCommit(String payload, SagaContext sagaContext) throws Exception {
+        InventoryCommitCommandV1 dto = objectMapper.readValue(payload, InventoryCommitCommandV1.class);
+        CommitInventoryCommand cmd = new CommitInventoryCommand(dto.commandId(), dto.orderId());
+        commitInventoryUseCase.commit(cmd, sagaContext);
     }
 
     /**

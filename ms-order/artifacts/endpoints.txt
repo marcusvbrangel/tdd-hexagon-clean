@@ -4,7 +4,7 @@
  Endpoints atualizados:
 
   - Commands:
-      - POST /orders
+      - POST /orders (body inclui currency)
       - POST /orders/place
       - POST /orders/{orderId}/confirm
       - POST /orders/{orderId}/cancel
@@ -14,8 +14,7 @@
       - GET /orders/{orderId}
       - GET /orders/{orderId}/items/{itemId}
 
-
-
+  Observação: respostas agora incluem currency e createdAt.
 
 
 

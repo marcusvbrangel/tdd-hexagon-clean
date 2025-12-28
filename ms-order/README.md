@@ -17,3 +17,5 @@ Projeto de estudo com arquitetura hexagonal, TDD e CQRS (Command/Query separados
   Parâmetros: `status`, `customerId`, `page` (default 0), `size` (default 20)
 - `GET /orders/{orderId}` — detalhe com itens
 - `GET /orders/{orderId}/items/{itemId}` — item específico do pedido
+
+`CreateOrderRequest` agora inclui o campo obrigatório `currency` (ex: `"BRL"`). Respostas de pedido incluem `createdAt`.

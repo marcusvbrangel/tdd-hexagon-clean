@@ -4,6 +4,7 @@ import com.mvbr.retailstore.order.domain.model.OrderStatus;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -27,6 +28,12 @@ public class JpaOrderEntity {
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal discount;
+
+    @Column(length = 8)
+    private String currency;
+
+    @Column(name = "created_at")
+    private Instant createdAt;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<JpaOrderItemEntity> items = new ArrayList<>();
@@ -73,6 +80,22 @@ public class JpaOrderEntity {
         this.discount = discount;
     }
 
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
     public List<JpaOrderItemEntity> getItems() {
         return items;
     }
@@ -101,6 +124,8 @@ public class JpaOrderEntity {
                 ", status=" + status +
                 ", total=" + total +
                 ", discount=" + discount +
+                ", currency=" + currency +
+                ", createdAt=" + createdAt +
                 ", items=" + items +
                 '}';
     }

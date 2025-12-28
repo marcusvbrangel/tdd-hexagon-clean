@@ -1,5 +1,6 @@
 package com.mvbr.retailstore.inventory.application.service;
 
+import com.mvbr.retailstore.inventory.application.command.CommitInventoryCommand;
 import com.mvbr.retailstore.inventory.application.command.ReleaseInventoryCommand;
 import com.mvbr.retailstore.inventory.application.command.ReserveInventoryCommand;
 import com.mvbr.retailstore.inventory.application.command.ReserveInventoryItemCommand;
@@ -17,6 +18,7 @@ import com.mvbr.retailstore.inventory.domain.model.Reservation;
 import com.mvbr.retailstore.inventory.domain.model.ReservationItem;
 import com.mvbr.retailstore.inventory.domain.model.ReservationStatus;
 import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.TopicNames;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto.InventoryCommittedEventV1;
 import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto.InventoryRejectedEventV1;
 import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto.InventoryReleasedEventV1;
 import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto.InventoryReservedEventV1;
@@ -184,6 +186,72 @@ public class InventoryCommandService {
     }
 
     /**
+     * Efetiva a reserva (commit) e publica inventory.committed de forma idempotente.
+     */
+    @Transactional
+    public void commit(CommitInventoryCommand cmd, SagaContext ctx) {
+        String orderId = cmd.orderId();
+        String commandId = cmd.commandId();
+
+        boolean first = processedRepo.markProcessedIfFirst(commandId, "inventory.commit", orderId, Instant.now());
+        if (!first) {
+            reservationRepo.findByOrderId(orderId).ifPresentOrElse(
+                    existing -> {
+                        if (existing.isCommitted()) {
+                            publishCommitted(existing, ctx);
+                        } else {
+                            log.info("Duplicate inventory.commit ignored. orderId=" + orderId
+                                    + " status=" + existing.getStatus());
+                        }
+                    },
+                    () -> log.info("Duplicate inventory.commit but no reservation found. orderId=" + orderId)
+            );
+            return;
+        }
+
+        Optional<Reservation> reservationOpt = reservationRepo.findByOrderId(orderId);
+        if (reservationOpt.isEmpty()) {
+            log.warning("inventory.commit without reservation. orderId=" + orderId);
+            return;
+        }
+
+        Reservation reservation = reservationOpt.get();
+        if (reservation.isCommitted()) {
+            publishCommitted(reservation, ctx);
+            return;
+        }
+        if (!reservation.isReserved()) {
+            log.warning("inventory.commit ignored for status=" + reservation.getStatus()
+                    + " orderId=" + orderId);
+            return;
+        }
+
+        List<String> productIds = reservation.getItems().stream()
+                .map(item -> item.productId().value())
+                .toList();
+        List<InventoryItem> stocks = inventoryRepo.lockByProductIds(productIds);
+        Map<String, InventoryItem> byProduct = new HashMap<>();
+        for (InventoryItem s : stocks) {
+            byProduct.put(s.getProductId().value(), s);
+        }
+
+        for (ReservationItem it : reservation.getItems()) {
+            InventoryItem stock = byProduct.get(it.productId().value());
+            if (stock == null) {
+                throw new IllegalStateException("Inventory item not found for productId=" + it.productId().value());
+            }
+            stock.commit(it.quantity().value());
+            inventoryRepo.save(stock);
+        }
+
+        reservation.markCommitted();
+        reservation.updateLastCommandId(commandId);
+        reservationRepo.save(reservation);
+
+        publishCommitted(reservation, ctx);
+    }
+
+    /**
      * Marca a reserva como rejeitada e publica o evento correspondente.
      */
     private void reject(Reservation reservation, SagaContext ctx, String orderId, String reason) {
@@ -281,6 +349,30 @@ public class InventoryCommandService {
                 "inventory.released",
                 event,
                 SagaHeaders.forEvent(eventId, "inventory.released", now.toString(), AGGREGATE_TYPE, orderId, ctx),
+                now
+        );
+    }
+
+    /**
+     * Publica inventory.committed via outbox.
+     */
+    private void publishCommitted(Reservation reservation, SagaContext ctx) {
+        Instant now = Instant.now();
+        String eventId = UUID.randomUUID().toString();
+        InventoryCommittedEventV1 event = new InventoryCommittedEventV1(
+                eventId,
+                now.toString(),
+                reservation.getOrderId().value()
+        );
+
+        eventPublisher.publish(
+                TopicNames.INVENTORY_EVENTS_V1,
+                AGGREGATE_TYPE,
+                reservation.getOrderId().value(),
+                "inventory.committed",
+                event,
+                SagaHeaders.forEvent(eventId, "inventory.committed", now.toString(), AGGREGATE_TYPE,
+                        reservation.getOrderId().value(), ctx),
                 now
         );
     }

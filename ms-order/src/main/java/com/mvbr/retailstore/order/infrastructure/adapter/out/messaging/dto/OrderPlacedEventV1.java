@@ -7,7 +7,9 @@ public record OrderPlacedEventV1(
         String occurredAt,
         String orderId,
         String customerId,
-        List<ItemV1> items
+        List<ItemV1> items,
+        String total,
+        String currency
 ) {
 
     public record ItemV1(

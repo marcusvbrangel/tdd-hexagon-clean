@@ -47,14 +47,25 @@ public class JpaCheckoutSagaRepositoryAdapter implements CheckoutSagaRepository 
         entity.setPaymentMethod(saga.getPaymentMethod());
         entity.setItemsJson(writeItems(saga.getItems()));
         entity.setOrderCompleted(saga.isOrderCompleted());
+        entity.setPaymentCaptured(saga.isPaymentCaptured());
+        entity.setInventoryCommitted(saga.isInventoryCommitted());
         entity.setInventoryReleased(saga.isInventoryReleased());
         entity.setOrderCanceled(saga.isOrderCanceled());
         entity.setDeadlineAt(saga.getDeadlineAt());
         entity.setAttemptsInventory(saga.getAttemptsInventory());
         entity.setAttemptsPayment(saga.getAttemptsPayment());
         entity.setAttemptsOrderCompletion(saga.getAttemptsOrderCompletion());
+        entity.setAttemptsPaymentCapture(saga.getAttemptsPaymentCapture());
+        entity.setAttemptsInventoryCommit(saga.getAttemptsInventoryCommit());
         entity.setLastError(saga.getLastError());
         entity.setLastEventId(saga.getLastEventId());
+        entity.setInventoryReserveCommandId(saga.getInventoryReserveCommandId());
+        entity.setPaymentAuthorizeCommandId(saga.getPaymentAuthorizeCommandId());
+        entity.setOrderCompleteCommandId(saga.getOrderCompleteCommandId());
+        entity.setPaymentCaptureCommandId(saga.getPaymentCaptureCommandId());
+        entity.setInventoryCommitCommandId(saga.getInventoryCommitCommandId());
+        entity.setInventoryReleaseCommandId(saga.getInventoryReleaseCommandId());
+        entity.setOrderCancelCommandId(saga.getOrderCancelCommandId());
         entity.setUpdatedAt(Instant.now());
 
         repo.save(entity);
@@ -81,9 +92,20 @@ public class JpaCheckoutSagaRepositoryAdapter implements CheckoutSagaRepository 
                         entity.getAttemptsInventory(),
                         entity.getAttemptsPayment(),
                         entity.getAttemptsOrderCompletion(),
+                        entity.getAttemptsPaymentCapture(),
+                        entity.getAttemptsInventoryCommit(),
                         entity.getLastError(),
                         entity.getLastEventId(),
+                        entity.getInventoryReserveCommandId(),
+                        entity.getPaymentAuthorizeCommandId(),
+                        entity.getOrderCompleteCommandId(),
+                        entity.getPaymentCaptureCommandId(),
+                        entity.getInventoryCommitCommandId(),
+                        entity.getInventoryReleaseCommandId(),
+                        entity.getOrderCancelCommandId(),
                         entity.isOrderCompleted(),
+                        entity.isPaymentCaptured(),
+                        entity.isInventoryCommitted(),
                         entity.isInventoryReleased(),
                         entity.isOrderCanceled()
                 )
@@ -99,7 +121,9 @@ public class JpaCheckoutSagaRepositoryAdapter implements CheckoutSagaRepository 
         List<String> steps = List.of(
                 SagaStep.WAIT_INVENTORY.name(),
                 SagaStep.WAIT_PAYMENT.name(),
-                SagaStep.WAIT_ORDER_COMPLETION.name()
+                SagaStep.WAIT_ORDER_COMPLETION.name(),
+                SagaStep.WAIT_PAYMENT_CAPTURE.name(),
+                SagaStep.WAIT_INVENTORY_COMMIT.name()
         );
         return repo.findTop100ByStatusAndStepInAndDeadlineAtLessThanEqualOrderByDeadlineAtAsc(
                 SagaStatus.RUNNING.name(),
@@ -121,9 +145,20 @@ public class JpaCheckoutSagaRepositoryAdapter implements CheckoutSagaRepository 
                         entity.getAttemptsInventory(),
                         entity.getAttemptsPayment(),
                         entity.getAttemptsOrderCompletion(),
+                        entity.getAttemptsPaymentCapture(),
+                        entity.getAttemptsInventoryCommit(),
                         entity.getLastError(),
                         entity.getLastEventId(),
+                        entity.getInventoryReserveCommandId(),
+                        entity.getPaymentAuthorizeCommandId(),
+                        entity.getOrderCompleteCommandId(),
+                        entity.getPaymentCaptureCommandId(),
+                        entity.getInventoryCommitCommandId(),
+                        entity.getInventoryReleaseCommandId(),
+                        entity.getOrderCancelCommandId(),
                         entity.isOrderCompleted(),
+                        entity.isPaymentCaptured(),
+                        entity.isInventoryCommitted(),
                         entity.isInventoryReleased(),
                         entity.isOrderCanceled()
                 )

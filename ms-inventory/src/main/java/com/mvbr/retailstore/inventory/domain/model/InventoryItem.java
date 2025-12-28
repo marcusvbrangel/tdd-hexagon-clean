@@ -87,6 +87,25 @@ public class InventoryItem {
     }
 
     /**
+     * Efetiva a reserva, reduzindo onHand e reserved.
+     */
+    public void commit(long qty) {
+        if (qty <= 0) {
+            throw new IllegalArgumentException("qty must be > 0");
+        }
+        if (this.reserved < qty) {
+            throw new IllegalStateException("reserved underflow");
+        }
+        if (this.onHand < qty) {
+            throw new IllegalStateException("onHand underflow");
+        }
+        this.reserved -= qty;
+        this.onHand -= qty;
+        this.updatedAt = Instant.now();
+        validateNonNegative();
+    }
+
+    /**
      * Garante que os campos permanecem consistentes.
      */
     private void validateNonNegative() {

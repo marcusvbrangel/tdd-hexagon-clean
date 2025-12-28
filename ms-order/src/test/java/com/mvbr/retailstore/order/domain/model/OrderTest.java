@@ -149,13 +149,14 @@ class OrderTest {
         order.addItem("prod-1", 2, new Money(new BigDecimal("10.00")));
         order.addItem("prod-2", 1, new Money(new BigDecimal("20.00")));
         order.applyDiscount(new Money(new BigDecimal("5.00")));
-        order.place();
+        order.place("BRL");
         order.confirm();
 
         // Then
         assertThat(order.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
         assertThat(order.getItems()).hasSize(2);
         assertThat(order.getTotal()).isEqualTo(new Money(new BigDecimal("35.00")));
+        assertThat(order.getCreatedAt()).isNotNull();
     }
 
     // PASSO 8: 🔴 Validar Quantidade do Item

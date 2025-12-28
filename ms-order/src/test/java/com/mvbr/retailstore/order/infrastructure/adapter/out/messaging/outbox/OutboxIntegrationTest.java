@@ -57,11 +57,11 @@ class OutboxIntegrationTest {
 
         OutboxMessageJpaEntity msg = messages.getFirst();
         assertThat(msg.getAggregateId()).isEqualTo(orderId.value());
-        assertThat(msg.getEventType()).isEqualTo("OrderPlaced");
-        assertThat(msg.getTopic()).isEqualTo("order.placed");
+        assertThat(msg.getEventType()).isEqualTo("order.placed");
+        assertThat(msg.getTopic()).isEqualTo("order.events.v1");
         assertThat(msg.getEventId()).isNotBlank();
         assertThat(msg.getOccurredAt()).isNotNull();
-        assertThat(msg.getHeadersJson()).contains("schemaVersion", "eventType", "order-service");
+        assertThat(msg.getHeadersJson()).contains("schemaVersion", "eventType", "ms-order");
         assertThat(msg.getStatus()).isEqualTo(OutboxMessageJpaEntity.Status.PENDING.name());
         assertThat(msg.getRetryCount()).isZero();
         assertThat(msg.getNextAttemptAt()).isNotNull();
@@ -70,8 +70,13 @@ class OutboxIntegrationTest {
         assertThat(payload.get("orderId")).isEqualTo(orderId.value());
         assertThat(payload.get("customerId")).isEqualTo("cust-123");
         @SuppressWarnings("unchecked")
-        List<String> productIds = (List<String>) payload.get("productIds");
-        assertThat(productIds).containsExactly("prod-123");
+        List<Map<String, Object>> items = (List<Map<String, Object>>) payload.get("items");
+        assertThat(items).hasSize(1);
+        assertThat(items.getFirst().get("productId")).isEqualTo("prod-123");
+        assertThat(items.getFirst().get("quantity")).isEqualTo(2);
+        assertThat(items.getFirst().get("unitPrice")).isEqualTo("10.00");
+        assertThat(payload.get("total")).isEqualTo("20.00");
+        assertThat(payload.get("currency")).isEqualTo("BRL");
         assertThat(msg.getPayloadJson()).doesNotContain("\"value\"");
     }
 
@@ -88,8 +93,8 @@ class OutboxIntegrationTest {
 
         OutboxMessageJpaEntity msg = messages.getFirst();
         assertThat(msg.getAggregateId()).isEqualTo(orderId.value());
-        assertThat(msg.getEventType()).isEqualTo("OrderConfirmed");
-        assertThat(msg.getTopic()).isEqualTo("order.confirmed");
+        assertThat(msg.getEventType()).isEqualTo("order.confirmed");
+        assertThat(msg.getTopic()).isEqualTo("order.events.v1");
 
         Map<String, Object> payload = parsePayload(msg);
         assertThat(payload.get("orderId")).isEqualTo(orderId.value());
@@ -115,8 +120,8 @@ class OutboxIntegrationTest {
 
         OutboxMessageJpaEntity msg = messages.getFirst();
         assertThat(msg.getAggregateId()).isEqualTo(orderId.value());
-        assertThat(msg.getEventType()).isEqualTo("OrderCanceled");
-        assertThat(msg.getTopic()).isEqualTo("order.canceled");
+        assertThat(msg.getEventType()).isEqualTo("order.canceled");
+        assertThat(msg.getTopic()).isEqualTo("order.events.v1");
 
         Map<String, Object> payload = parsePayload(msg);
         assertThat(payload.get("orderId")).isEqualTo(orderId.value());
@@ -128,7 +133,8 @@ class OutboxIntegrationTest {
         return new PlaceOrderCommand(
                 "cust-123",
                 List.of(new PlaceOrderItemCommand("prod-123", 2, new BigDecimal("10.00"))),
-                Optional.empty()
+                Optional.empty(),
+                "BRL"
         );
     }
 

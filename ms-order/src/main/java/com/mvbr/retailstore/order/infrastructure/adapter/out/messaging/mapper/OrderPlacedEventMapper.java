@@ -21,7 +21,9 @@ public final class OrderPlacedEventMapper {
                                 i.quantity(),
                                 i.unitPrice()
                         ))
-                        .toList()
+                        .toList(),
+                event.total(),
+                event.currency()
         );
     }
 }

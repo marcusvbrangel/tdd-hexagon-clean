@@ -58,12 +58,11 @@ spring:
         compression.type: snappy
         linger.ms: 5
 
-    # (Opcional) se no futuro você consumir Kafka neste serviço
-    # consumer:
-    #   group-id: ${KAFKA_CONSUMER_GROUP_ID:ms-order}
-    #   auto-offset-reset: earliest
-    #   key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-    #   value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP_ID:ms-order}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
 # =============================================================================================
 # TOPICS (criação automática em DEV via KafkaAdmin.NewTopics do seu KafkaConfig)

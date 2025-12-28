@@ -1,6 +1,7 @@
 package com.mvbr.retailstore.order.domain.model;
 
 import com.mvbr.retailstore.order.domain.event.OrderCanceledEvent;
+import com.mvbr.retailstore.order.domain.event.OrderCompletedEvent;
 import com.mvbr.retailstore.order.domain.event.OrderConfirmedEvent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,7 +22,7 @@ class OrderDomainEventsTest {
                 .build();
 
         order.addItem("prod-1", 1, new Money(BigDecimal.TEN));
-        order.place();
+        order.place("BRL");
 
         // descarta evento de colocação para focar no evento de confirmação
         order.pullEvents();
@@ -52,5 +53,49 @@ class OrderDomainEventsTest {
         OrderCanceledEvent event = (OrderCanceledEvent) events.getFirst();
         assertThat(event.orderId()).isEqualTo(order.getOrderId());
         assertThat(event.customerId()).isEqualTo(order.getCustomerId());
+    }
+
+    @Test
+    @DisplayName("Should emit OrderCompletedEvent when completing from placed")
+    void completeShouldEmitEvent() {
+        Order order = Order.builder()
+                .withOrderId(new OrderId("ord-complete"))
+                .withCustomerId(new CustomerId("cust-3"))
+                .build();
+
+        order.addItem("prod-3", 1, new Money(new BigDecimal("12.50")));
+        order.place("BRL");
+
+        order.pullEvents();
+
+        order.complete();
+        List<?> events = order.pullEvents();
+
+        assertThat(events).singleElement().isInstanceOf(OrderCompletedEvent.class);
+        OrderCompletedEvent event = (OrderCompletedEvent) events.getFirst();
+        assertThat(event.orderId()).isEqualTo(order.getOrderId());
+        assertThat(event.customerId()).isEqualTo(order.getCustomerId());
+    }
+
+    @Test
+    @DisplayName("Should ignore duplicate complete when order is already completed")
+    void completeShouldBeIdempotent() {
+        Order order = Order.builder()
+                .withOrderId(new OrderId("ord-complete-idempotent"))
+                .withCustomerId(new CustomerId("cust-4"))
+                .build();
+
+        order.addItem("prod-4", 1, new Money(new BigDecimal("15.00")));
+        order.place("BRL");
+        order.pullEvents();
+
+        order.complete();
+        order.pullEvents();
+
+        order.complete();
+        List<?> events = order.pullEvents();
+
+        assertThat(events).isEmpty();
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.COMPLETED);
     }
 }

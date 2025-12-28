@@ -12,7 +12,9 @@ public record OrderPlacedEvent(
         Instant occurredAt,
         OrderId orderId,
         CustomerId customerId,
-        List<Item> items
+        List<Item> items,
+        String total,
+        String currency
 ) implements DomainEvent {
 
     public record Item(
@@ -21,17 +23,25 @@ public record OrderPlacedEvent(
             String unitPrice
     ) { }
 
-    public static OrderPlacedEvent of(OrderId orderId, CustomerId customerId, List<Item> items) {
+    public static OrderPlacedEvent of(OrderId orderId,
+                                      CustomerId customerId,
+                                      List<Item> items,
+                                      String total,
+                                      String currency) {
         if (orderId == null) throw new IllegalArgumentException("OrderId cannot be null");
         if (customerId == null) throw new IllegalArgumentException("CustomerId cannot be null");
         if (items == null) throw new IllegalArgumentException("Items cannot be null");
+        if (total == null || total.isBlank()) throw new IllegalArgumentException("Total cannot be null/blank");
+        if (currency == null || currency.isBlank()) throw new IllegalArgumentException("Currency cannot be null/blank");
 
         return new OrderPlacedEvent(
                 UUID.randomUUID().toString(),
                 Instant.now(),
                 orderId,
                 customerId,
-                List.copyOf(items)
+                List.copyOf(items),
+                total,
+                currency
         );
     }
 

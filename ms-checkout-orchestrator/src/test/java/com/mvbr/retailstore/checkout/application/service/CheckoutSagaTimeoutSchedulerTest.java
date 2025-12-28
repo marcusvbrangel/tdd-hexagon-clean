@@ -7,6 +7,7 @@ import com.mvbr.retailstore.checkout.domain.model.CheckoutSaga;
 import com.mvbr.retailstore.checkout.domain.model.CheckoutSagaItem;
 import com.mvbr.retailstore.checkout.domain.model.SagaStatus;
 import com.mvbr.retailstore.checkout.domain.model.SagaStep;
+import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentAuthorizeCommandV1;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -88,6 +89,77 @@ class CheckoutSagaTimeoutSchedulerTest {
         assertThat(publisher.published().get(1).commandType()).isEqualTo("order.cancel");
     }
 
+    @Test
+    void timeout_wait_payment_retries_keep_same_command_id() {
+        InMemorySagaRepository sagaRepository = new InMemorySagaRepository();
+        CapturingCommandPublisher publisher = new CapturingCommandPublisher();
+        SagaProperties sagaProperties = new SagaProperties();
+        sagaProperties.getTimeouts().setPaymentSeconds(0);
+        sagaProperties.getRetries().setPaymentMax(3);
+
+        CheckoutSaga saga = CheckoutSaga.start("order-1", "corr-1");
+        saga.onOrderPlaced(
+                "cust-1",
+                "10.00",
+                "BRL",
+                null,
+                List.of(new CheckoutSagaItem("sku-1", 1)),
+                Instant.now().minusSeconds(5)
+        );
+        saga.onInventoryReserved(Instant.now().minusSeconds(5));
+        sagaRepository.save(saga);
+
+        CheckoutSagaTimeoutScheduler scheduler = new CheckoutSagaTimeoutScheduler(
+                sagaRepository,
+                new CheckoutSagaCommandSender(publisher),
+                sagaProperties
+        );
+
+        scheduler.tick();
+        scheduler.tick();
+
+        assertThat(publisher.published()).hasSize(2);
+        PaymentAuthorizeCommandV1 first =
+                (PaymentAuthorizeCommandV1) publisher.published().get(0).payload();
+        PaymentAuthorizeCommandV1 second =
+                (PaymentAuthorizeCommandV1) publisher.published().get(1).payload();
+        assertThat(first.commandId()).isEqualTo(second.commandId());
+    }
+
+    @Test
+    void timeout_wait_payment_capture_retries_capture() {
+        InMemorySagaRepository sagaRepository = new InMemorySagaRepository();
+        CapturingCommandPublisher publisher = new CapturingCommandPublisher();
+        SagaProperties sagaProperties = new SagaProperties();
+
+        CheckoutSaga saga = CheckoutSaga.start("order-1", "corr-1");
+        saga.onOrderPlaced(
+                "cust-1",
+                "10.00",
+                "BRL",
+                null,
+                List.of(new CheckoutSagaItem("sku-1", 1)),
+                Instant.now().minusSeconds(5)
+        );
+        saga.onInventoryReserved(Instant.now().minusSeconds(5));
+        saga.onPaymentAuthorized(Instant.now().minusSeconds(5));
+        saga.onOrderCompleted(Instant.now().minusSeconds(5));
+        sagaRepository.save(saga);
+
+        CheckoutSagaTimeoutScheduler scheduler = new CheckoutSagaTimeoutScheduler(
+                sagaRepository,
+                new CheckoutSagaCommandSender(publisher),
+                sagaProperties
+        );
+
+        scheduler.tick();
+
+        CheckoutSaga updated = sagaRepository.get("order-1");
+        assertThat(updated.getAttemptsPaymentCapture()).isEqualTo(1);
+        assertThat(publisher.published()).hasSize(1);
+        assertThat(publisher.published().getFirst().commandType()).isEqualTo("payment.capture");
+    }
+
     private static class InMemorySagaRepository implements CheckoutSagaRepository {
         private final Map<String, CheckoutSaga> store = new HashMap<>();
 
@@ -109,7 +181,9 @@ class CheckoutSagaTimeoutSchedulerTest {
                     .filter(saga -> saga.getStatus() == SagaStatus.RUNNING)
                     .filter(saga -> saga.getStep() == SagaStep.WAIT_INVENTORY
                             || saga.getStep() == SagaStep.WAIT_PAYMENT
-                            || saga.getStep() == SagaStep.WAIT_ORDER_COMPLETION)
+                            || saga.getStep() == SagaStep.WAIT_ORDER_COMPLETION
+                            || saga.getStep() == SagaStep.WAIT_PAYMENT_CAPTURE
+                            || saga.getStep() == SagaStep.WAIT_INVENTORY_COMMIT)
                     .toList();
         }
 

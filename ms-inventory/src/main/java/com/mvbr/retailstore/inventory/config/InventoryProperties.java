@@ -31,7 +31,7 @@ public class InventoryProperties {
      * Grupo de propriedades para tempo de vida da reserva.
      */
     public static class Reservation {
-        private long ttlSeconds = 120;
+        private long ttlSeconds = 900;
 
         /**
          * TTL padrao em segundos.

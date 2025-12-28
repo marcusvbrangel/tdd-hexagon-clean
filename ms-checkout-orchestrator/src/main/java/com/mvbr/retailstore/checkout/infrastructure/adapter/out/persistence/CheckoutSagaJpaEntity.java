@@ -61,6 +61,12 @@ public class CheckoutSagaJpaEntity {
     @Column(name = "order_completed", nullable = false)
     private boolean orderCompleted;
 
+    @Column(name = "payment_captured", nullable = false)
+    private boolean paymentCaptured;
+
+    @Column(name = "inventory_committed", nullable = false)
+    private boolean inventoryCommitted;
+
     @Column(name = "inventory_released", nullable = false)
     private boolean inventoryReleased;
 
@@ -79,11 +85,38 @@ public class CheckoutSagaJpaEntity {
     @Column(name = "attempts_order_completion", nullable = false)
     private int attemptsOrderCompletion;
 
+    @Column(name = "attempts_payment_capture", nullable = false)
+    private int attemptsPaymentCapture;
+
+    @Column(name = "attempts_inventory_commit", nullable = false)
+    private int attemptsInventoryCommit;
+
     @Column(name = "last_error", length = 512)
     private String lastError;
 
     @Column(name = "last_event_id", length = 128)
     private String lastEventId;
+
+    @Column(name = "inventory_reserve_command_id", length = 64)
+    private String inventoryReserveCommandId;
+
+    @Column(name = "payment_authorize_command_id", length = 64)
+    private String paymentAuthorizeCommandId;
+
+    @Column(name = "order_complete_command_id", length = 64)
+    private String orderCompleteCommandId;
+
+    @Column(name = "payment_capture_command_id", length = 64)
+    private String paymentCaptureCommandId;
+
+    @Column(name = "inventory_commit_command_id", length = 64)
+    private String inventoryCommitCommandId;
+
+    @Column(name = "inventory_release_command_id", length = 64)
+    private String inventoryReleaseCommandId;
+
+    @Column(name = "order_cancel_command_id", length = 64)
+    private String orderCancelCommandId;
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
@@ -121,6 +154,10 @@ public class CheckoutSagaJpaEntity {
     public void setItemsJson(String itemsJson) { this.itemsJson = itemsJson; }
     public boolean isOrderCompleted() { return orderCompleted; }
     public void setOrderCompleted(boolean orderCompleted) { this.orderCompleted = orderCompleted; }
+    public boolean isPaymentCaptured() { return paymentCaptured; }
+    public void setPaymentCaptured(boolean paymentCaptured) { this.paymentCaptured = paymentCaptured; }
+    public boolean isInventoryCommitted() { return inventoryCommitted; }
+    public void setInventoryCommitted(boolean inventoryCommitted) { this.inventoryCommitted = inventoryCommitted; }
     public boolean isInventoryReleased() { return inventoryReleased; }
     public void setInventoryReleased(boolean inventoryReleased) { this.inventoryReleased = inventoryReleased; }
     public boolean isOrderCanceled() { return orderCanceled; }
@@ -133,10 +170,42 @@ public class CheckoutSagaJpaEntity {
     public void setAttemptsPayment(int attemptsPayment) { this.attemptsPayment = attemptsPayment; }
     public int getAttemptsOrderCompletion() { return attemptsOrderCompletion; }
     public void setAttemptsOrderCompletion(int attemptsOrderCompletion) { this.attemptsOrderCompletion = attemptsOrderCompletion; }
+    public int getAttemptsPaymentCapture() { return attemptsPaymentCapture; }
+    public void setAttemptsPaymentCapture(int attemptsPaymentCapture) { this.attemptsPaymentCapture = attemptsPaymentCapture; }
+    public int getAttemptsInventoryCommit() { return attemptsInventoryCommit; }
+    public void setAttemptsInventoryCommit(int attemptsInventoryCommit) { this.attemptsInventoryCommit = attemptsInventoryCommit; }
     public String getLastError() { return lastError; }
     public void setLastError(String lastError) { this.lastError = lastError; }
     public String getLastEventId() { return lastEventId; }
     public void setLastEventId(String lastEventId) { this.lastEventId = lastEventId; }
+    public String getInventoryReserveCommandId() { return inventoryReserveCommandId; }
+    public void setInventoryReserveCommandId(String inventoryReserveCommandId) {
+        this.inventoryReserveCommandId = inventoryReserveCommandId;
+    }
+    public String getPaymentAuthorizeCommandId() { return paymentAuthorizeCommandId; }
+    public void setPaymentAuthorizeCommandId(String paymentAuthorizeCommandId) {
+        this.paymentAuthorizeCommandId = paymentAuthorizeCommandId;
+    }
+    public String getOrderCompleteCommandId() { return orderCompleteCommandId; }
+    public void setOrderCompleteCommandId(String orderCompleteCommandId) {
+        this.orderCompleteCommandId = orderCompleteCommandId;
+    }
+    public String getPaymentCaptureCommandId() { return paymentCaptureCommandId; }
+    public void setPaymentCaptureCommandId(String paymentCaptureCommandId) {
+        this.paymentCaptureCommandId = paymentCaptureCommandId;
+    }
+    public String getInventoryCommitCommandId() { return inventoryCommitCommandId; }
+    public void setInventoryCommitCommandId(String inventoryCommitCommandId) {
+        this.inventoryCommitCommandId = inventoryCommitCommandId;
+    }
+    public String getInventoryReleaseCommandId() { return inventoryReleaseCommandId; }
+    public void setInventoryReleaseCommandId(String inventoryReleaseCommandId) {
+        this.inventoryReleaseCommandId = inventoryReleaseCommandId;
+    }
+    public String getOrderCancelCommandId() { return orderCancelCommandId; }
+    public void setOrderCancelCommandId(String orderCancelCommandId) {
+        this.orderCancelCommandId = orderCancelCommandId;
+    }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

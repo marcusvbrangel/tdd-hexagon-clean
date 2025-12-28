@@ -2,6 +2,7 @@ package com.mvbr.retailstore.order.application.service;
 
 import com.mvbr.retailstore.order.application.command.PlaceOrderCommand;
 import com.mvbr.retailstore.order.application.port.in.CancelOrderUseCase;
+import com.mvbr.retailstore.order.application.port.in.CompleteOrderUseCase;
 import com.mvbr.retailstore.order.application.port.in.ConfirmOrderUseCase;
 import com.mvbr.retailstore.order.application.port.in.PlaceOrderUseCase;
 import com.mvbr.retailstore.order.application.port.out.EventPublisher;
@@ -17,7 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class OrderCommandService implements
         PlaceOrderUseCase,
         ConfirmOrderUseCase,
-        CancelOrderUseCase {
+        CancelOrderUseCase,
+        CompleteOrderUseCase {
 
     private final OrderRepository orderRepository;
     private final OrderIdGenerator orderIdGenerator;;
@@ -57,7 +59,7 @@ public class OrderCommandService implements
                 .map(Money::new)
                 .ifPresent(order::applyDiscount);
 
-        order.place();
+        order.place(placeOrderCommand.currency());
 
         // persistencia...
         orderRepository.save(order);
@@ -94,12 +96,21 @@ public class OrderCommandService implements
         return order;
     }
 
+    @Override
+    @Transactional
+    public Order complete(String orderId) {
+        Order order = orderRepository.findById(new OrderId(orderId))
+                .orElseThrow(() -> new InvalidOrderException("Order not found: " + orderId));
+
+        order.complete();
+        orderRepository.save(order);
+        order.pullEvents().forEach(eventPublisher::publish);
+        return order;
+    }
 
 
 
 }
-
-
 
 
 

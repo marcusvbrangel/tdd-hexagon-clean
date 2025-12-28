@@ -6,9 +6,11 @@ import com.mvbr.retailstore.checkout.domain.model.CheckoutSagaItem;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.TopicNames;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.InventoryReleaseCommandV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.InventoryReserveCommandV1;
+import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.InventoryCommitCommandV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.OrderCancelCommandV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.OrderCompleteCommandV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentAuthorizeCommandV1;
+import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentCaptureCommandV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.headers.HeaderNames;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.headers.SagaHeaders;
 import org.springframework.stereotype.Component;
@@ -39,7 +41,7 @@ public class CheckoutSagaCommandSender {
      * Fluxo: CheckoutSagaEngine/TimeoutScheduler -> este sender -> CommandPublisher.
      */
     public void sendInventoryReserve(CheckoutSaga saga, String causationId, String sagaStep) {
-        String commandId = newCommandId();
+        String commandId = saga.getOrCreateInventoryReserveCommandId();
         InventoryReserveCommandV1 cmd = new InventoryReserveCommandV1(
                 commandId,
                 now(),
@@ -48,7 +50,7 @@ public class CheckoutSagaCommandSender {
         );
 
         Map<String, String> headers = SagaHeaders.forCommand(
-                commandId,
+                newEventId(),
                 saga.getSagaId(),
                 saga.getCorrelationId(),
                 causationId,
@@ -57,6 +59,7 @@ public class CheckoutSagaCommandSender {
                 AGGREGATE_TYPE,
                 saga.getOrderId()
         );
+        headers.put(HeaderNames.COMMAND_ID, commandId);
         applyCommandType(headers, "inventory.reserve");
 
         commandPublisher.publish(
@@ -73,7 +76,7 @@ public class CheckoutSagaCommandSender {
      * Chamado apos inventory.reserved ou por retry de timeout.
      */
     public void sendPaymentAuthorize(CheckoutSaga saga, String causationId, String sagaStep) {
-        String commandId = newCommandId();
+        String commandId = saga.getOrCreatePaymentAuthorizeCommandId();
         PaymentAuthorizeCommandV1 cmd = new PaymentAuthorizeCommandV1(
                 commandId,
                 now(),
@@ -85,7 +88,7 @@ public class CheckoutSagaCommandSender {
         );
 
         Map<String, String> headers = SagaHeaders.forCommand(
-                commandId,
+                newEventId(),
                 saga.getSagaId(),
                 saga.getCorrelationId(),
                 causationId,
@@ -94,6 +97,7 @@ public class CheckoutSagaCommandSender {
                 AGGREGATE_TYPE,
                 saga.getOrderId()
         );
+        headers.put(HeaderNames.COMMAND_ID, commandId);
         applyCommandType(headers, "payment.authorize");
 
         commandPublisher.publish(
@@ -109,7 +113,7 @@ public class CheckoutSagaCommandSender {
      * Envia comando para concluir o pedido no servico de orders.
      */
     public void sendOrderComplete(CheckoutSaga saga, String causationId, String sagaStep) {
-        String commandId = newCommandId();
+        String commandId = saga.getOrCreateOrderCompleteCommandId();
         OrderCompleteCommandV1 cmd = new OrderCompleteCommandV1(
                 commandId,
                 now(),
@@ -117,7 +121,7 @@ public class CheckoutSagaCommandSender {
         );
 
         Map<String, String> headers = SagaHeaders.forCommand(
-                commandId,
+                newEventId(),
                 saga.getSagaId(),
                 saga.getCorrelationId(),
                 causationId,
@@ -126,6 +130,7 @@ public class CheckoutSagaCommandSender {
                 AGGREGATE_TYPE,
                 saga.getOrderId()
         );
+        headers.put(HeaderNames.COMMAND_ID, commandId);
         applyCommandType(headers, "order.complete");
 
         commandPublisher.publish(
@@ -138,19 +143,19 @@ public class CheckoutSagaCommandSender {
     }
 
     /**
-     * Envia comando para cancelar o pedido (compensacao).
+     * Envia comando para capturar pagamento autorizado.
      */
-    public void sendOrderCancel(CheckoutSaga saga, String causationId, String sagaStep, String reason) {
-        String commandId = newCommandId();
-        OrderCancelCommandV1 cmd = new OrderCancelCommandV1(
+    public void sendPaymentCapture(CheckoutSaga saga, String causationId, String sagaStep) {
+        String commandId = saga.getOrCreatePaymentCaptureCommandId();
+        PaymentCaptureCommandV1 cmd = new PaymentCaptureCommandV1(
                 commandId,
                 now(),
                 saga.getOrderId(),
-                reason
+                null
         );
 
         Map<String, String> headers = SagaHeaders.forCommand(
-                commandId,
+                newEventId(),
                 saga.getSagaId(),
                 saga.getCorrelationId(),
                 causationId,
@@ -159,6 +164,41 @@ public class CheckoutSagaCommandSender {
                 AGGREGATE_TYPE,
                 saga.getOrderId()
         );
+        headers.put(HeaderNames.COMMAND_ID, commandId);
+        applyCommandType(headers, "payment.capture");
+
+        commandPublisher.publish(
+                TopicNames.PAYMENT_COMMANDS_V1,
+                saga.getOrderId(),
+                "payment.capture",
+                cmd,
+                headers
+        );
+    }
+
+    /**
+     * Envia comando para cancelar o pedido (compensacao).
+     */
+    public void sendOrderCancel(CheckoutSaga saga, String causationId, String sagaStep, String reason) {
+        String commandId = saga.getOrCreateOrderCancelCommandId();
+        OrderCancelCommandV1 cmd = new OrderCancelCommandV1(
+                commandId,
+                now(),
+                saga.getOrderId(),
+                reason
+        );
+
+        Map<String, String> headers = SagaHeaders.forCommand(
+                newEventId(),
+                saga.getSagaId(),
+                saga.getCorrelationId(),
+                causationId,
+                SAGA_NAME,
+                sagaStep,
+                AGGREGATE_TYPE,
+                saga.getOrderId()
+        );
+        headers.put(HeaderNames.COMMAND_ID, commandId);
         applyCommandType(headers, "order.cancel");
 
         commandPublisher.publish(
@@ -174,7 +214,7 @@ public class CheckoutSagaCommandSender {
      * Envia comando para liberar estoque (compensacao).
      */
     public void sendInventoryRelease(CheckoutSaga saga, String causationId, String sagaStep) {
-        String commandId = newCommandId();
+        String commandId = saga.getOrCreateInventoryReleaseCommandId();
         InventoryReleaseCommandV1 cmd = new InventoryReleaseCommandV1(
                 commandId,
                 now(),
@@ -183,7 +223,7 @@ public class CheckoutSagaCommandSender {
         );
 
         Map<String, String> headers = SagaHeaders.forCommand(
-                commandId,
+                newEventId(),
                 saga.getSagaId(),
                 saga.getCorrelationId(),
                 causationId,
@@ -192,12 +232,46 @@ public class CheckoutSagaCommandSender {
                 AGGREGATE_TYPE,
                 saga.getOrderId()
         );
+        headers.put(HeaderNames.COMMAND_ID, commandId);
         applyCommandType(headers, "inventory.release");
 
         commandPublisher.publish(
                 TopicNames.INVENTORY_COMMANDS_V1,
                 saga.getOrderId(),
                 "inventory.release",
+                cmd,
+                headers
+        );
+    }
+
+    /**
+     * Envia comando para efetivar o estoque apos captura do pagamento.
+     */
+    public void sendInventoryCommit(CheckoutSaga saga, String causationId, String sagaStep) {
+        String commandId = saga.getOrCreateInventoryCommitCommandId();
+        InventoryCommitCommandV1 cmd = new InventoryCommitCommandV1(
+                commandId,
+                now(),
+                saga.getOrderId()
+        );
+
+        Map<String, String> headers = SagaHeaders.forCommand(
+                newEventId(),
+                saga.getSagaId(),
+                saga.getCorrelationId(),
+                causationId,
+                SAGA_NAME,
+                sagaStep,
+                AGGREGATE_TYPE,
+                saga.getOrderId()
+        );
+        headers.put(HeaderNames.COMMAND_ID, commandId);
+        applyCommandType(headers, "inventory.commit");
+
+        commandPublisher.publish(
+                TopicNames.INVENTORY_COMMANDS_V1,
+                saga.getOrderId(),
+                "inventory.commit",
                 cmd,
                 headers
         );
@@ -216,13 +290,6 @@ public class CheckoutSagaCommandSender {
     }
 
     /**
-     * Gera um novo id para comando/evento.
-     */
-    private String newCommandId() {
-        return UUID.randomUUID().toString();
-    }
-
-    /**
      * Timestamp padrao para eventos de comando.
      */
     private String now() {
@@ -235,5 +302,9 @@ public class CheckoutSagaCommandSender {
     private void applyCommandType(Map<String, String> headers, String commandType) {
         headers.put(HeaderNames.COMMAND_TYPE, commandType);
         headers.put(HeaderNames.EVENT_TYPE, commandType);
+    }
+
+    private String newEventId() {
+        return UUID.randomUUID().toString();
     }
 }

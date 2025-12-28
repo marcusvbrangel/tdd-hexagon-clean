@@ -35,6 +35,8 @@ public class SagaProperties {
         private long inventorySeconds = 30;
         private long paymentSeconds = 120;
         private long orderCompleteSeconds = 60;
+        private long paymentCaptureSeconds = 120;
+        private long inventoryCommitSeconds = 60;
 
         /**
          * Timeout da reserva de estoque.
@@ -77,6 +79,34 @@ public class SagaProperties {
         public void setOrderCompleteSeconds(long orderCompleteSeconds) {
             this.orderCompleteSeconds = orderCompleteSeconds;
         }
+
+        /**
+         * Timeout para captura do pagamento.
+         */
+        public long getPaymentCaptureSeconds() {
+            return paymentCaptureSeconds;
+        }
+
+        /**
+         * Ajusta timeout para captura do pagamento.
+         */
+        public void setPaymentCaptureSeconds(long paymentCaptureSeconds) {
+            this.paymentCaptureSeconds = paymentCaptureSeconds;
+        }
+
+        /**
+         * Timeout para commit do estoque.
+         */
+        public long getInventoryCommitSeconds() {
+            return inventoryCommitSeconds;
+        }
+
+        /**
+         * Ajusta timeout para commit do estoque.
+         */
+        public void setInventoryCommitSeconds(long inventoryCommitSeconds) {
+            this.inventoryCommitSeconds = inventoryCommitSeconds;
+        }
     }
 
     /**
@@ -86,6 +116,8 @@ public class SagaProperties {
         private int inventoryMax = 2;
         private int paymentMax = 3;
         private int orderCompleteMax = 2;
+        private int paymentCaptureMax = 3;
+        private int inventoryCommitMax = 2;
 
         /**
          * Numero maximo de tentativas para reserva de estoque.
@@ -127,6 +159,34 @@ public class SagaProperties {
          */
         public void setOrderCompleteMax(int orderCompleteMax) {
             this.orderCompleteMax = orderCompleteMax;
+        }
+
+        /**
+         * Numero maximo de tentativas para captura do pagamento.
+         */
+        public int getPaymentCaptureMax() {
+            return paymentCaptureMax;
+        }
+
+        /**
+         * Ajusta numero maximo de tentativas para captura do pagamento.
+         */
+        public void setPaymentCaptureMax(int paymentCaptureMax) {
+            this.paymentCaptureMax = paymentCaptureMax;
+        }
+
+        /**
+         * Numero maximo de tentativas para commit do estoque.
+         */
+        public int getInventoryCommitMax() {
+            return inventoryCommitMax;
+        }
+
+        /**
+         * Ajusta numero maximo de tentativas para commit do estoque.
+         */
+        public void setInventoryCommitMax(int inventoryCommitMax) {
+            this.inventoryCommitMax = inventoryCommitMax;
         }
     }
 }

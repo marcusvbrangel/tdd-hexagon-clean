@@ -92,11 +92,15 @@ class CheckoutSagaTest {
         );
         saga.onInventoryReserved(Instant.now().plusSeconds(120));
         saga.onPaymentAuthorized(Instant.now().plusSeconds(60));
-        saga.markOrderCompleted();
+        saga.onOrderCompleted(Instant.now().plusSeconds(60));
+        saga.onPaymentCaptured(Instant.now().plusSeconds(30));
+        saga.markInventoryCommitted();
 
         assertThat(saga.getStatus()).isEqualTo(SagaStatus.COMPLETED);
         assertThat(saga.getStep()).isEqualTo(SagaStep.DONE);
         assertThat(saga.isOrderCompleted()).isTrue();
+        assertThat(saga.isPaymentCaptured()).isTrue();
+        assertThat(saga.isInventoryCommitted()).isTrue();
     }
 
     @Test
@@ -134,5 +138,22 @@ class CheckoutSagaTest {
 
         assertThat(saga.getStatus()).isEqualTo(SagaStatus.CANCELED);
         assertThat(saga.getStep()).isEqualTo(SagaStep.DONE);
+    }
+
+    @Test
+    void getOrCreate_commandId_is_stable_and_clear_resets() {
+        CheckoutSaga saga = CheckoutSaga.start("order-1", "corr-1");
+
+        String first = saga.getOrCreatePaymentAuthorizeCommandId();
+        String second = saga.getOrCreatePaymentAuthorizeCommandId();
+
+        assertThat(first).isNotBlank();
+        assertThat(second).isEqualTo(first);
+
+        saga.clearPaymentAuthorizeCommandId();
+        String third = saga.getOrCreatePaymentAuthorizeCommandId();
+
+        assertThat(third).isNotBlank();
+        assertThat(third).isNotEqualTo(first);
     }
 }

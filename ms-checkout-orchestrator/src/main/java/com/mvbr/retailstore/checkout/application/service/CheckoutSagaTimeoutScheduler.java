@@ -25,6 +25,8 @@ public class CheckoutSagaTimeoutScheduler {
     private static final String REASON_INVENTORY_TIMEOUT = "INVENTORY_TIMEOUT";
     private static final String REASON_PAYMENT_TIMEOUT = "PAYMENT_TIMEOUT";
     private static final String REASON_ORDER_TIMEOUT = "ORDER_TIMEOUT";
+    private static final String REASON_PAYMENT_CAPTURE_TIMEOUT = "PAYMENT_CAPTURE_TIMEOUT";
+    private static final String REASON_INVENTORY_COMMIT_TIMEOUT = "INVENTORY_COMMIT_TIMEOUT";
 
     private final CheckoutSagaRepository sagaRepository;
     private final CheckoutSagaCommandSender commandSender;
@@ -64,6 +66,8 @@ public class CheckoutSagaTimeoutScheduler {
             case WAIT_INVENTORY -> handleInventoryTimeout(saga, causationId);
             case WAIT_PAYMENT -> handlePaymentTimeout(saga, causationId);
             case WAIT_ORDER_COMPLETION -> handleOrderCompletionTimeout(saga, causationId);
+            case WAIT_PAYMENT_CAPTURE -> handlePaymentCaptureTimeout(saga, causationId);
+            case WAIT_INVENTORY_COMMIT -> handleInventoryCommitTimeout(saga, causationId);
             default -> { }
         }
     }
@@ -75,12 +79,15 @@ public class CheckoutSagaTimeoutScheduler {
         int maxRetries = sagaProperties.getRetries().getInventoryMax();
         if (saga.getAttemptsInventory() < maxRetries) {
             saga.scheduleInventoryRetry(deadlineAfterSeconds(sagaProperties.getTimeouts().getInventorySeconds()));
+            saga.getOrCreateInventoryReserveCommandId();
             sagaRepository.save(saga);
             commandSender.sendInventoryReserve(saga, causationId, SagaStep.WAIT_INVENTORY.name());
             return;
         }
 
         saga.onInventoryRejected(REASON_INVENTORY_TIMEOUT);
+        saga.clearInventoryReserveCommandId();
+        saga.getOrCreateOrderCancelCommandId();
         sagaRepository.save(saga);
         commandSender.sendOrderCancel(saga, causationId, SagaStep.COMPENSATING.name(), REASON_INVENTORY_TIMEOUT);
     }
@@ -92,12 +99,16 @@ public class CheckoutSagaTimeoutScheduler {
         int maxRetries = sagaProperties.getRetries().getPaymentMax();
         if (saga.getAttemptsPayment() < maxRetries) {
             saga.schedulePaymentRetry(deadlineAfterSeconds(sagaProperties.getTimeouts().getPaymentSeconds()));
+            saga.getOrCreatePaymentAuthorizeCommandId();
             sagaRepository.save(saga);
             commandSender.sendPaymentAuthorize(saga, causationId, SagaStep.WAIT_PAYMENT.name());
             return;
         }
 
         saga.onPaymentDeclined(REASON_PAYMENT_TIMEOUT);
+        saga.clearPaymentAuthorizeCommandId();
+        saga.getOrCreateInventoryReleaseCommandId();
+        saga.getOrCreateOrderCancelCommandId();
         sagaRepository.save(saga);
         commandSender.sendInventoryRelease(saga, causationId, SagaStep.COMPENSATING.name());
         commandSender.sendOrderCancel(saga, causationId, SagaStep.COMPENSATING.name(), REASON_PAYMENT_TIMEOUT);
@@ -111,12 +122,54 @@ public class CheckoutSagaTimeoutScheduler {
         if (saga.getAttemptsOrderCompletion() < maxRetries) {
             saga.scheduleOrderCompletionRetry(deadlineAfterSeconds(
                     sagaProperties.getTimeouts().getOrderCompleteSeconds()));
+            saga.getOrCreateOrderCompleteCommandId();
             sagaRepository.save(saga);
             commandSender.sendOrderComplete(saga, causationId, SagaStep.WAIT_ORDER_COMPLETION.name());
             return;
         }
 
         saga.markOrderCanceled(REASON_ORDER_TIMEOUT);
+        saga.clearOrderCompleteCommandId();
+        sagaRepository.save(saga);
+    }
+
+    /**
+     * Trata timeout de captura: retry ou compensacao (liberar estoque).
+     */
+    private void handlePaymentCaptureTimeout(CheckoutSaga saga, String causationId) {
+        int maxRetries = sagaProperties.getRetries().getPaymentCaptureMax();
+        if (saga.getAttemptsPaymentCapture() < maxRetries) {
+            saga.schedulePaymentCaptureRetry(deadlineAfterSeconds(
+                    sagaProperties.getTimeouts().getPaymentCaptureSeconds()));
+            saga.getOrCreatePaymentCaptureCommandId();
+            sagaRepository.save(saga);
+            commandSender.sendPaymentCapture(saga, causationId, SagaStep.WAIT_PAYMENT_CAPTURE.name());
+            return;
+        }
+
+        saga.onPaymentCaptureFailed(REASON_PAYMENT_CAPTURE_TIMEOUT);
+        saga.clearPaymentCaptureCommandId();
+        saga.getOrCreateInventoryReleaseCommandId();
+        sagaRepository.save(saga);
+        commandSender.sendInventoryRelease(saga, causationId, SagaStep.COMPENSATING.name());
+    }
+
+    /**
+     * Trata timeout de commit do estoque: retry ou encerramento com erro.
+     */
+    private void handleInventoryCommitTimeout(CheckoutSaga saga, String causationId) {
+        int maxRetries = sagaProperties.getRetries().getInventoryCommitMax();
+        if (saga.getAttemptsInventoryCommit() < maxRetries) {
+            saga.scheduleInventoryCommitRetry(deadlineAfterSeconds(
+                    sagaProperties.getTimeouts().getInventoryCommitSeconds()));
+            saga.getOrCreateInventoryCommitCommandId();
+            sagaRepository.save(saga);
+            commandSender.sendInventoryCommit(saga, causationId, SagaStep.WAIT_INVENTORY_COMMIT.name());
+            return;
+        }
+
+        saga.markInventoryCommitFailed(REASON_INVENTORY_COMMIT_TIMEOUT);
+        saga.clearInventoryCommitCommandId();
         sagaRepository.save(saga);
     }
 

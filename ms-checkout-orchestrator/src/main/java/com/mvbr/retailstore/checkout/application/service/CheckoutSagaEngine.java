@@ -11,10 +11,13 @@ import com.mvbr.retailstore.checkout.domain.model.SagaStep;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.in.messaging.envelope.EventEnvelope;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.InventoryRejectedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.InventoryReservedEventV1;
+import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.InventoryCommittedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.OrderCanceledEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.OrderCompletedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.OrderPlacedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentAuthorizedEventV1;
+import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentCapturedEventV1;
+import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentCaptureFailedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentDeclinedEventV1;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -80,6 +83,9 @@ public class CheckoutSagaEngine {
             case "order.completed" -> handleIfFirst(env, orderId, this::onOrderCompleted);
             case "order.canceled" -> handleIfFirst(env, orderId, this::onOrderCanceled);
             case "inventory.released" -> handleIfFirst(env, orderId, this::onInventoryReleased);
+            case "payment.captured" -> handleIfFirst(env, orderId, this::onPaymentCaptured);
+            case "payment.capture_failed" -> handleIfFirst(env, orderId, this::onPaymentCaptureFailed);
+            case "inventory.committed" -> handleIfFirst(env, orderId, this::onInventoryCommitted);
             default -> false;
         };
 
@@ -131,6 +137,7 @@ public class CheckoutSagaEngine {
                 items,
                 deadlineAfterSeconds(sagaProperties.getTimeouts().getInventorySeconds())
         );
+        saga.getOrCreateInventoryReserveCommandId();
         saga.recordLastEvent(env.eventId());
         sagaRepository.save(saga);
 
@@ -152,6 +159,8 @@ public class CheckoutSagaEngine {
         }
 
         saga.onInventoryReserved(deadlineAfterSeconds(sagaProperties.getTimeouts().getPaymentSeconds()));
+        saga.clearInventoryReserveCommandId();
+        saga.getOrCreatePaymentAuthorizeCommandId();
         saga.recordLastEvent(env.eventId());
         sagaRepository.save(saga);
 
@@ -174,6 +183,8 @@ public class CheckoutSagaEngine {
 
         String lastError = errorWithDetail(REASON_INVENTORY_REJECTED, event.reason());
         saga.onInventoryRejected(lastError);
+        saga.clearInventoryReserveCommandId();
+        saga.getOrCreateOrderCancelCommandId();
         saga.recordLastEvent(env.eventId());
         sagaRepository.save(saga);
 
@@ -195,6 +206,8 @@ public class CheckoutSagaEngine {
         }
 
         saga.onPaymentAuthorized(deadlineAfterSeconds(sagaProperties.getTimeouts().getOrderCompleteSeconds()));
+        saga.clearPaymentAuthorizeCommandId();
+        saga.getOrCreateOrderCompleteCommandId();
         saga.recordLastEvent(env.eventId());
         sagaRepository.save(saga);
 
@@ -217,6 +230,9 @@ public class CheckoutSagaEngine {
 
         String lastError = errorWithDetail(REASON_PAYMENT_DECLINED, event.reason());
         saga.onPaymentDeclined(lastError);
+        saga.clearPaymentAuthorizeCommandId();
+        saga.getOrCreateInventoryReleaseCommandId();
+        saga.getOrCreateOrderCancelCommandId();
         saga.recordLastEvent(env.eventId());
         sagaRepository.save(saga);
 
@@ -238,9 +254,13 @@ public class CheckoutSagaEngine {
             return;
         }
 
-        saga.markOrderCompleted();
+        saga.onOrderCompleted(deadlineAfterSeconds(sagaProperties.getTimeouts().getPaymentCaptureSeconds()));
+        saga.clearOrderCompleteCommandId();
+        saga.getOrCreatePaymentCaptureCommandId();
         saga.recordLastEvent(env.eventId());
         sagaRepository.save(saga);
+
+        commandSender.sendPaymentCapture(saga, env.eventId(), SagaStep.WAIT_PAYMENT_CAPTURE.name());
     }
 
     /**
@@ -255,6 +275,7 @@ public class CheckoutSagaEngine {
         }
         if (saga.getStatus() == SagaStatus.RUNNING) {
             saga.markOrderCanceled("ORDER_CANCELED");
+            saga.clearOrderCancelCommandId();
             saga.recordLastEvent(env.eventId());
             sagaRepository.save(saga);
         }
@@ -269,7 +290,90 @@ public class CheckoutSagaEngine {
             log.warning("inventory.released for unknown orderId=" + env.aggregateIdOrKey());
             return;
         }
+        boolean expected = saga.getInventoryReleaseCommandId() != null
+                && !saga.getInventoryReleaseCommandId().isBlank();
+        boolean fromCheckout = "checkout".equalsIgnoreCase(env.sagaName());
+        boolean compensatingStep = saga.getStep() == SagaStep.COMPENSATING;
+        if (!expected && !fromCheckout && !compensatingStep) {
+            log.warning("Ignoring inventory.released outside compensation (possible expiration). orderId="
+                    + saga.getOrderId()
+                    + " sagaId=" + saga.getSagaId()
+                    + " status=" + saga.getStatus()
+                    + " step=" + saga.getStep()
+                    + " eventId=" + env.eventId()
+                    + " sagaName=" + env.sagaName()
+                    + " sagaStep=" + env.sagaStep());
+            return;
+        }
         saga.markInventoryReleased();
+        saga.clearInventoryReleaseCommandId();
+        saga.recordLastEvent(env.eventId());
+        sagaRepository.save(saga);
+    }
+
+    /**
+     * Handler para payment.captured: envia commit de estoque.
+     */
+    private void onPaymentCaptured(EventEnvelope env) {
+        PaymentCapturedEventV1 event = env.readPayload(objectMapper, PaymentCapturedEventV1.class);
+        String orderId = resolveOrderId(event.orderId(), env);
+        CheckoutSaga saga = findSaga(orderId, env.eventType(), env.eventId());
+        if (saga == null) {
+            return;
+        }
+        if (!isExpectedStep(saga, SagaStep.WAIT_PAYMENT_CAPTURE, env)) {
+            return;
+        }
+
+        saga.onPaymentCaptured(deadlineAfterSeconds(sagaProperties.getTimeouts().getInventoryCommitSeconds()));
+        saga.clearPaymentCaptureCommandId();
+        saga.getOrCreateInventoryCommitCommandId();
+        saga.recordLastEvent(env.eventId());
+        sagaRepository.save(saga);
+
+        commandSender.sendInventoryCommit(saga, env.eventId(), SagaStep.WAIT_INVENTORY_COMMIT.name());
+    }
+
+    /**
+     * Handler para payment.capture_failed: inicia compensacao.
+     */
+    private void onPaymentCaptureFailed(EventEnvelope env) {
+        PaymentCaptureFailedEventV1 event = env.readPayload(objectMapper, PaymentCaptureFailedEventV1.class);
+        String orderId = resolveOrderId(event.orderId(), env);
+        CheckoutSaga saga = findSaga(orderId, env.eventType(), env.eventId());
+        if (saga == null) {
+            return;
+        }
+        if (!isExpectedStep(saga, SagaStep.WAIT_PAYMENT_CAPTURE, env)) {
+            return;
+        }
+
+        String lastError = errorWithDetail("PAYMENT_CAPTURE_FAILED", event.reason());
+        saga.onPaymentCaptureFailed(lastError);
+        saga.clearPaymentCaptureCommandId();
+        saga.getOrCreateInventoryReleaseCommandId();
+        saga.recordLastEvent(env.eventId());
+        sagaRepository.save(saga);
+
+        commandSender.sendInventoryRelease(saga, env.eventId(), SagaStep.COMPENSATING.name());
+    }
+
+    /**
+     * Handler para inventory.committed: encerra a saga.
+     */
+    private void onInventoryCommitted(EventEnvelope env) {
+        InventoryCommittedEventV1 event = env.readPayload(objectMapper, InventoryCommittedEventV1.class);
+        String orderId = resolveOrderId(event.orderId(), env);
+        CheckoutSaga saga = findSaga(orderId, env.eventType(), env.eventId());
+        if (saga == null) {
+            return;
+        }
+        if (!isExpectedStep(saga, SagaStep.WAIT_INVENTORY_COMMIT, env)) {
+            return;
+        }
+
+        saga.markInventoryCommitted();
+        saga.clearInventoryCommitCommandId();
         saga.recordLastEvent(env.eventId());
         sagaRepository.save(saga);
     }

@@ -27,6 +27,8 @@ public class OrderPersistenceMapper {
         entity.setStatus(order.getStatus());
         entity.setDiscount(order.getDiscount().amount());
         entity.setTotal(order.getTotal().amount());
+        entity.setCurrency(order.getCurrency());
+        entity.setCreatedAt(order.getCreatedAt());
 
         List<JpaOrderItemEntity> items = order.getItems()
                 .stream()
@@ -72,7 +74,9 @@ public class OrderPersistenceMapper {
                 new CustomerId(entity.getCustomerId()),
                 entity.getStatus(),
                 items,
-                discount
+                discount,
+                entity.getCurrency(),
+                entity.getCreatedAt()
         );
     }
 

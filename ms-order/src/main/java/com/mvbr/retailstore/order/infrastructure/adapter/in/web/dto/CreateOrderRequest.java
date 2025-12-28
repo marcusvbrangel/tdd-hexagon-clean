@@ -10,5 +10,6 @@ import java.util.List;
 public record CreateOrderRequest(
         @NotBlank String customerId,
         @NotEmpty List<CreateOrderItemRequest> items,
+        @NotBlank String currency,
         @PositiveOrZero BigDecimal discount
 ) { }

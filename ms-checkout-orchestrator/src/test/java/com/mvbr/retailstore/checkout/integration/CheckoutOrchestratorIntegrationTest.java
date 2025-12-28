@@ -4,10 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.TopicNames;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.InventoryRejectedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.InventoryReservedEventV1;
+import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.InventoryCommittedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.OrderCanceledEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.OrderCompletedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.OrderPlacedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentAuthorizedEventV1;
+import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentCapturedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.headers.HeaderNames;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -113,6 +115,24 @@ class CheckoutOrchestratorIntegrationTest {
 
         sendOrderCompleted(orderId, correlationId);
 
+        ConsumerRecord<String, String> paymentCapture = pollForRecord(
+                TopicNames.PAYMENT_COMMANDS_V1,
+                orderId,
+                Duration.ofSeconds(10)
+        );
+        assertThat(header(paymentCapture, HeaderNames.EVENT_TYPE)).isEqualTo("payment.capture");
+
+        sendPaymentCaptured(orderId, correlationId);
+
+        ConsumerRecord<String, String> inventoryCommit = pollForRecord(
+                TopicNames.INVENTORY_COMMANDS_V1,
+                orderId,
+                Duration.ofSeconds(10)
+        );
+        assertThat(header(inventoryCommit, HeaderNames.EVENT_TYPE)).isEqualTo("inventory.commit");
+
+        sendInventoryCommitted(orderId, correlationId);
+
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
             String status = jdbcTemplate.queryForObject(
                     "select status from checkout_saga where order_id = ?",
@@ -127,7 +147,7 @@ class CheckoutOrchestratorIntegrationTest {
                 Integer.class,
                 orderId
         );
-        assertThat(processedCount).isGreaterThanOrEqualTo(4);
+        assertThat(processedCount).isGreaterThanOrEqualTo(6);
     }
 
     @Test
@@ -250,6 +270,42 @@ class CheckoutOrchestratorIntegrationTest {
                 TopicNames.ORDER_EVENTS_V1,
                 orderId,
                 "order.completed",
+                payload.eventId(),
+                payload,
+                correlationId
+        );
+    }
+
+    private void sendPaymentCaptured(String orderId, String correlationId) throws Exception {
+        PaymentCapturedEventV1 payload = new PaymentCapturedEventV1(
+                UUID.randomUUID().toString(),
+                Instant.now().toString(),
+                orderId,
+                "pay-1",
+                "pi-1"
+        );
+
+        sendEvent(
+                TopicNames.PAYMENT_EVENTS_V1,
+                orderId,
+                "payment.captured",
+                payload.eventId(),
+                payload,
+                correlationId
+        );
+    }
+
+    private void sendInventoryCommitted(String orderId, String correlationId) throws Exception {
+        InventoryCommittedEventV1 payload = new InventoryCommittedEventV1(
+                UUID.randomUUID().toString(),
+                Instant.now().toString(),
+                orderId
+        );
+
+        sendEvent(
+                TopicNames.INVENTORY_EVENTS_V1,
+                orderId,
+                "inventory.committed",
                 payload.eventId(),
                 payload,
                 correlationId

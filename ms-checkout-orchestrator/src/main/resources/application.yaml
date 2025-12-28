@@ -87,14 +87,18 @@ outbox:
 # =============================================================================================
 saga:
   timeouts:
-    inventorySeconds: ${SAGA_TIMEOUT_INVENTORY_SECONDS:600}              # 30
-    paymentSeconds: ${SAGA_TIMEOUT_PAYMENT_SECONDS:600}                 # 120
-    orderCompleteSeconds: ${SAGA_TIMEOUT_ORDER_COMPLETE_SECONDS:600}     # 60
+    inventorySeconds: ${SAGA_TIMEOUT_INVENTORY_SECONDS:30}              # 30
+    paymentSeconds: ${SAGA_TIMEOUT_PAYMENT_SECONDS:6120}                 # 120
+    orderCompleteSeconds: ${SAGA_TIMEOUT_ORDER_COMPLETE_SECONDS:60}     # 60
+    paymentCaptureSeconds: ${SAGA_TIMEOUT_PAYMENT_CAPTURE_SECONDS:120}  # 120
+    inventoryCommitSeconds: ${SAGA_TIMEOUT_INVENTORY_COMMIT_SECONDS:60} # 60
     scanFixedDelayMs: ${SAGA_TIMEOUT_SCAN_FIXED_DELAY_MS:5000}
   retries:
     inventoryMax: ${SAGA_RETRIES_INVENTORY_MAX:2}
     paymentMax: ${SAGA_RETRIES_PAYMENT_MAX:3}
     orderCompleteMax: ${SAGA_RETRIES_ORDER_COMPLETE_MAX:2}
+    paymentCaptureMax: ${SAGA_RETRIES_PAYMENT_CAPTURE_MAX:3}
+    inventoryCommitMax: ${SAGA_RETRIES_INVENTORY_COMMIT_MAX:2}
 
 # =============================================================================================
 # LOGGING

@@ -90,7 +90,7 @@ outbox:
 # =============================================================================================
 inventory:
   reservation:
-    ttlSeconds: ${INVENTORY_RESERVATION_TTL_SECONDS:120}
+    ttlSeconds: ${INVENTORY_RESERVATION_TTL_SECONDS:900}
   expiration:
     scanFixedDelayMs: ${INVENTORY_EXPIRATION_SCAN_FIXED_DELAY_MS:5000}
     batchSize: ${INVENTORY_EXPIRATION_BATCH_SIZE:50}
