@@ -15,6 +15,7 @@ import com.mvbr.retailstore.inventory.domain.model.OrderId;
 import com.mvbr.retailstore.inventory.domain.model.ProductId;
 import com.mvbr.retailstore.inventory.domain.model.Quantity;
 import com.mvbr.retailstore.inventory.domain.model.Reservation;
+import com.mvbr.retailstore.inventory.domain.model.ReservationId;
 import com.mvbr.retailstore.inventory.domain.model.ReservationItem;
 import com.mvbr.retailstore.inventory.domain.model.ReservationStatus;
 import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.TopicNames;
@@ -69,10 +70,12 @@ public class InventoryCommandService {
      */
     @Transactional
     public void reserve(ReserveInventoryCommand cmd, SagaContext ctx) {
+        final Instant now = Instant.now();
+
         String orderId = cmd.orderId();
         String commandId = cmd.commandId();
 
-        boolean first = processedRepo.markProcessedIfFirst(commandId, "inventory.reserve", orderId, Instant.now());
+        boolean first = processedRepo.markProcessedIfFirst(commandId, "inventory.reserve", orderId, now);
         if (!first) {
             reservationRepo.findByOrderId(orderId).ifPresentOrElse(
                     existing -> republishReserveOutcome(existing, ctx),
@@ -88,12 +91,12 @@ public class InventoryCommandService {
         }
 
         Reservation reservation = new Reservation(
-                UUID.randomUUID().toString(),
+                new ReservationId(UUID.randomUUID().toString()),
                 new OrderId(orderId),
                 ReservationStatus.PENDING,
                 null,
-                Instant.now(),
-                Instant.now().plus(properties.getReservation().getTtlSeconds(), ChronoUnit.SECONDS),
+                now,
+                now.plus(properties.getReservation().getTtlSeconds(), ChronoUnit.SECONDS),
                 commandId,
                 ctx != null ? ctx.correlationId() : null
         );
@@ -102,6 +105,7 @@ public class InventoryCommandService {
 
         List<String> productIds = cmd.items().stream().map(ReserveInventoryItemCommand::productId).toList();
         List<InventoryItem> stocks = inventoryRepo.lockByProductIds(productIds);
+
         Map<String, InventoryItem> byProduct = new HashMap<>();
         for (InventoryItem s : stocks) {
             byProduct.put(s.getProductId().value(), s);
@@ -121,7 +125,7 @@ public class InventoryCommandService {
 
         for (ReserveInventoryItemCommand it : cmd.items()) {
             InventoryItem stock = byProduct.get(it.productId());
-            stock.reserve(it.quantity());
+            stock.reserve(it.quantity(), now); // <-- assinatura "tanque"
             inventoryRepo.save(stock);
             reservation.addItem(new ProductId(it.productId()), new Quantity(it.quantity()));
         }
@@ -137,11 +141,13 @@ public class InventoryCommandService {
      */
     @Transactional
     public void release(ReleaseInventoryCommand cmd, SagaContext ctx) {
+        final Instant now = Instant.now();
+
         String orderId = cmd.orderId();
         String commandId = cmd.commandId();
         String reason = (cmd.reason() == null || cmd.reason().isBlank()) ? "RELEASED" : cmd.reason();
 
-        boolean first = processedRepo.markProcessedIfFirst(commandId, "inventory.release", orderId, Instant.now());
+        boolean first = processedRepo.markProcessedIfFirst(commandId, "inventory.release", orderId, now);
         if (!first) {
             publishReleased(orderId, reason, ctx);
             return;
@@ -164,6 +170,7 @@ public class InventoryCommandService {
                 .map(item -> item.productId().value())
                 .toList();
         List<InventoryItem> stocks = inventoryRepo.lockByProductIds(productIds);
+
         Map<String, InventoryItem> byProduct = new HashMap<>();
         for (InventoryItem s : stocks) {
             byProduct.put(s.getProductId().value(), s);
@@ -174,7 +181,7 @@ public class InventoryCommandService {
             if (stock == null) {
                 throw new IllegalStateException("Inventory item not found for productId=" + it.productId().value());
             }
-            stock.release(it.quantity().value());
+            stock.release(it.quantity().value(), now); // <-- assinatura "tanque"
             inventoryRepo.save(stock);
         }
 
@@ -190,10 +197,12 @@ public class InventoryCommandService {
      */
     @Transactional
     public void commit(CommitInventoryCommand cmd, SagaContext ctx) {
+        final Instant now = Instant.now();
+
         String orderId = cmd.orderId();
         String commandId = cmd.commandId();
 
-        boolean first = processedRepo.markProcessedIfFirst(commandId, "inventory.commit", orderId, Instant.now());
+        boolean first = processedRepo.markProcessedIfFirst(commandId, "inventory.commit", orderId, now);
         if (!first) {
             reservationRepo.findByOrderId(orderId).ifPresentOrElse(
                     existing -> {
@@ -230,6 +239,7 @@ public class InventoryCommandService {
                 .map(item -> item.productId().value())
                 .toList();
         List<InventoryItem> stocks = inventoryRepo.lockByProductIds(productIds);
+
         Map<String, InventoryItem> byProduct = new HashMap<>();
         for (InventoryItem s : stocks) {
             byProduct.put(s.getProductId().value(), s);
@@ -240,7 +250,7 @@ public class InventoryCommandService {
             if (stock == null) {
                 throw new IllegalStateException("Inventory item not found for productId=" + it.productId().value());
             }
-            stock.commit(it.quantity().value());
+            stock.commit(it.quantity().value(), now); // <-- assinatura "tanque"
             inventoryRepo.save(stock);
         }
 
@@ -251,18 +261,12 @@ public class InventoryCommandService {
         publishCommitted(reservation, ctx);
     }
 
-    /**
-     * Marca a reserva como rejeitada e publica o evento correspondente.
-     */
     private void reject(Reservation reservation, SagaContext ctx, String orderId, String reason) {
         reservation.markRejected(reason);
         reservationRepo.save(reservation);
         publishRejected(orderId, reason, ctx);
     }
 
-    /**
-     * Reenvia o resultado conhecido quando o comando chega duplicado.
-     */
     private void republishReserveOutcome(Reservation reservation, SagaContext ctx) {
         if (reservation.getStatus() == ReservationStatus.RESERVED) {
             publishReserved(reservation, ctx);
@@ -275,9 +279,6 @@ public class InventoryCommandService {
         publishRejected(reservation.getOrderId().value(), "PENDING_STATE", ctx);
     }
 
-    /**
-     * Publica inventory.reserved via outbox com headers de saga.
-     */
     private void publishReserved(Reservation reservation, SagaContext ctx) {
         List<InventoryReservedEventV1.Item> items = reservation.getItems().stream()
                 .map(i -> new InventoryReservedEventV1.Item(i.productId().value(), i.quantity().value()))
@@ -305,9 +306,6 @@ public class InventoryCommandService {
         );
     }
 
-    /**
-     * Publica inventory.rejected via outbox.
-     */
     private void publishRejected(String orderId, String reason, SagaContext ctx) {
         Instant now = Instant.now();
         String eventId = UUID.randomUUID().toString();
@@ -329,9 +327,6 @@ public class InventoryCommandService {
         );
     }
 
-    /**
-     * Publica inventory.released via outbox.
-     */
     private void publishReleased(String orderId, String reason, SagaContext ctx) {
         Instant now = Instant.now();
         String eventId = UUID.randomUUID().toString();
@@ -353,9 +348,6 @@ public class InventoryCommandService {
         );
     }
 
-    /**
-     * Publica inventory.committed via outbox.
-     */
     private void publishCommitted(Reservation reservation, SagaContext ctx) {
         Instant now = Instant.now();
         String eventId = UUID.randomUUID().toString();

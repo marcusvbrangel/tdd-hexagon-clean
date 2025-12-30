@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Entidade de dominio que representa uma reserva de estoque por pedido.
@@ -11,17 +12,21 @@ import java.util.List;
  */
 public class Reservation {
 
-    private final String reservationId;
+    private final ReservationId reservationId;
     private final OrderId orderId;
+
     private ReservationStatus status;
     private String reason;
+
     private final Instant createdAt;
     private Instant expiresAt;
+
     private String lastCommandId;
     private String correlationId;
+
     private final List<ReservationItem> items = new ArrayList<>();
 
-    public Reservation(String reservationId,
+    public Reservation(ReservationId reservationId,
                        OrderId orderId,
                        ReservationStatus status,
                        String reason,
@@ -29,96 +34,82 @@ public class Reservation {
                        Instant expiresAt,
                        String lastCommandId,
                        String correlationId) {
-        this.reservationId = reservationId;
-        this.orderId = orderId;
-        this.status = status;
-        this.reason = reason;
-        this.createdAt = createdAt;
-        this.expiresAt = expiresAt;
-        this.lastCommandId = lastCommandId;
-        this.correlationId = correlationId;
+
+        this.reservationId = Objects.requireNonNull(reservationId, "reservationId");
+        this.orderId = Objects.requireNonNull(orderId, "orderId");
+        this.status = Objects.requireNonNull(status, "status");
+
+        this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
+        this.expiresAt = Objects.requireNonNull(expiresAt, "expiresAt");
+        if (expiresAt.isBefore(createdAt)) {
+            throw new IllegalArgumentException("expiresAt must be >= createdAt");
+        }
+
+        this.reason = normalizeBlankToNull(reason);
+        this.lastCommandId = normalizeBlankToNull(lastCommandId);
+        this.correlationId = normalizeBlankToNull(correlationId);
+
+        // reason coerente com status
+        if (requiresReason(status) && this.reason == null) {
+            throw new IllegalArgumentException("reason is required for status " + status);
+        }
+        if (!requiresReason(status)) {
+            this.reason = null;
+        }
     }
 
     /**
-     * Identificador unico da reserva.
+     * Reidratação (persistência -> domínio), incluindo itens.
      */
-    public String getReservationId() {
-        return reservationId;
+    public static Reservation restore(ReservationId reservationId,
+                                      OrderId orderId,
+                                      ReservationStatus status,
+                                      String reason,
+                                      Instant createdAt,
+                                      Instant expiresAt,
+                                      String lastCommandId,
+                                      String correlationId,
+                                      List<ReservationItem> items) {
+
+        Reservation r = new Reservation(
+                reservationId,
+                orderId,
+                status,
+                reason,
+                createdAt,
+                expiresAt,
+                lastCommandId,
+                correlationId
+        );
+
+        if (items != null && !items.isEmpty()) {
+            r.items.addAll(items);
+        }
+        return r;
     }
 
-    /**
-     * Pedido associado a esta reserva.
-     */
-    public OrderId getOrderId() {
-        return orderId;
-    }
+    public ReservationId getReservationId() { return reservationId; }
+    public OrderId getOrderId() { return orderId; }
+    public ReservationStatus getStatus() { return status; }
+    public String getReason() { return reason; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getExpiresAt() { return expiresAt; }
+    public String getLastCommandId() { return lastCommandId; }
+    public String getCorrelationId() { return correlationId; }
 
-    /**
-     * Status atual da reserva.
-     */
-    public ReservationStatus getStatus() {
-        return status;
-    }
-
-    /**
-     * Motivo de rejeicao/liberacao, quando aplicavel.
-     */
-    public String getReason() {
-        return reason;
-    }
-
-    /**
-     * Data/hora de criacao da reserva.
-     */
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    /**
-     * Data/hora de expiracao da reserva.
-     */
-    public Instant getExpiresAt() {
-        return expiresAt;
-    }
-
-    /**
-     * Ultimo commandId associado a esta reserva (idempotencia/observabilidade).
-     */
-    public String getLastCommandId() {
-        return lastCommandId;
-    }
-
-    /**
-     * CorrelationId da saga para rastreamento.
-     */
-    public String getCorrelationId() {
-        return correlationId;
-    }
-
-    /**
-     * Lista de itens reservados (imutavel externamente).
-     */
     public List<ReservationItem> getItems() {
         return Collections.unmodifiableList(items);
     }
 
-    /**
-     * Conveniencia: indica se a reserva esta efetivamente ativa.
-     */
+    // ✅ Estes 2 métodos são os que resolvem seus erros nas linhas 164 / 228 / 232
     public boolean isReserved() {
         return status == ReservationStatus.RESERVED;
     }
 
-    /**
-     * Indica se a reserva ja foi efetivada.
-     */
     public boolean isCommitted() {
         return status == ReservationStatus.COMMITTED;
     }
 
-    /**
-     * Indica se a reserva ja foi encerrada (nao pode mais ser alterada).
-     */
     public boolean isClosed() {
         return status == ReservationStatus.RELEASED
                 || status == ReservationStatus.COMMITTED
@@ -126,64 +117,90 @@ public class Reservation {
                 || status == ReservationStatus.EXPIRED;
     }
 
-    /**
-     * Adiciona um item a reserva (usado no fluxo de reserva bem sucedida).
-     */
     public void addItem(ProductId productId, Quantity quantity) {
+        requireOpen();
+        Objects.requireNonNull(productId, "productId");
+        Objects.requireNonNull(quantity, "quantity");
         items.add(new ReservationItem(productId, quantity));
     }
 
-    /**
-     * Marca a reserva como efetivada.
-     */
     public void markReserved() {
+        requireTransition(ReservationStatus.PENDING, ReservationStatus.RESERVED);
         this.status = ReservationStatus.RESERVED;
         this.reason = null;
     }
 
-    /**
-     * Marca a reserva como efetivada (estoque consumido).
-     */
     public void markCommitted() {
+        requireTransition(ReservationStatus.RESERVED, ReservationStatus.COMMITTED);
         this.status = ReservationStatus.COMMITTED;
         this.reason = null;
     }
 
-    /**
-     * Marca a reserva como rejeitada com motivo.
-     */
     public void markRejected(String reason) {
+        requireTransition(ReservationStatus.PENDING, ReservationStatus.REJECTED);
         this.status = ReservationStatus.REJECTED;
-        this.reason = reason;
+        this.reason = requireNonBlank(reason, "reason");
     }
 
-    /**
-     * Marca a reserva como liberada (compensacao).
-     */
     public void markReleased(String reason) {
+        requireTransition(ReservationStatus.RESERVED, ReservationStatus.RELEASED);
         this.status = ReservationStatus.RELEASED;
-        this.reason = reason;
+        this.reason = requireNonBlank(reason, "reason");
     }
 
-    /**
-     * Marca a reserva como expirada por timeout interno.
-     */
     public void markExpired() {
-        this.status = ReservationStatus.EXPIRED;
-        this.reason = "EXPIRED";
+        if (status == ReservationStatus.PENDING || status == ReservationStatus.RESERVED) {
+            this.status = ReservationStatus.EXPIRED;
+            this.reason = "EXPIRED";
+            return;
+        }
+        throw new IllegalStateException("invalid transition: " + status + " -> EXPIRED");
     }
 
-    /**
-     * Atualiza o prazo de expiracao, quando necessario.
-     */
-    public void updateExpiresAt(Instant expiresAt) {
-        this.expiresAt = expiresAt;
+    public void extendExpiresAt(Instant newExpiresAt) {
+        requireOpen();
+        Objects.requireNonNull(newExpiresAt, "newExpiresAt");
+        if (newExpiresAt.isBefore(createdAt)) {
+            throw new IllegalArgumentException("expiresAt must be >= createdAt");
+        }
+        if (newExpiresAt.isBefore(this.expiresAt)) {
+            throw new IllegalArgumentException("expiresAt cannot be reduced (only extend)");
+        }
+        this.expiresAt = newExpiresAt;
     }
 
-    /**
-     * Atualiza o ultimo commandId processado.
-     */
     public void updateLastCommandId(String commandId) {
-        this.lastCommandId = commandId;
+        this.lastCommandId = requireNonBlank(commandId, "commandId");
+    }
+
+    private void requireOpen() {
+        if (isClosed()) {
+            throw new IllegalStateException("reservation is closed: " + status);
+        }
+    }
+
+    private void requireTransition(ReservationStatus from, ReservationStatus to) {
+        if (this.status != from) {
+            throw new IllegalStateException("invalid transition: " + this.status + " -> " + to);
+        }
+    }
+
+    private static boolean requiresReason(ReservationStatus status) {
+        return status == ReservationStatus.REJECTED
+                || status == ReservationStatus.RELEASED
+                || status == ReservationStatus.EXPIRED;
+    }
+
+    private static String requireNonBlank(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " is required");
+        }
+        return value.trim();
+    }
+
+    private static String normalizeBlankToNull(String value) {
+        if (value == null) return null;
+        String v = value.trim();
+        return v.isEmpty() ? null : v;
     }
 }

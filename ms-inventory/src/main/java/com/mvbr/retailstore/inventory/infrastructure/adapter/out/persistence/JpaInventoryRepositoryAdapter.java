@@ -8,6 +8,7 @@ import com.mvbr.retailstore.inventory.domain.model.OrderId;
 import com.mvbr.retailstore.inventory.domain.model.ProductId;
 import com.mvbr.retailstore.inventory.domain.model.Quantity;
 import com.mvbr.retailstore.inventory.domain.model.Reservation;
+import com.mvbr.retailstore.inventory.domain.model.ReservationId;
 import com.mvbr.retailstore.inventory.domain.model.ReservationItem;
 import com.mvbr.retailstore.inventory.domain.model.ReservationStatus;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -56,6 +57,7 @@ public class JpaInventoryRepositoryAdapter implements InventoryItemRepository, R
         for (String pid : productIds) {
             JpaInventoryItemEntity e = map.get(pid);
             if (e == null) {
+                // item "virtual" para o MVP
                 result.add(new InventoryItem(new ProductId(pid), 0, 0, Instant.now()));
             } else {
                 result.add(toDomain(e));
@@ -64,17 +66,11 @@ public class JpaInventoryRepositoryAdapter implements InventoryItemRepository, R
         return result;
     }
 
-    /**
-     * Busca item por produto sem lock.
-     */
     @Override
     public Optional<InventoryItem> findByProductId(String productId) {
         return inventoryRepo.findById(productId).map(this::toDomain);
     }
 
-    /**
-     * Persiste alteracoes no item de estoque.
-     */
     @Override
     public InventoryItem save(InventoryItem item) {
         JpaInventoryItemEntity e = new JpaInventoryItemEntity(
@@ -87,9 +83,6 @@ public class JpaInventoryRepositoryAdapter implements InventoryItemRepository, R
         return item;
     }
 
-    /**
-     * Busca reserva por orderId.
-     */
     @Override
     public Optional<Reservation> findByOrderId(String orderId) {
         return reservationRepo.findByOrderId(orderId).map(this::toDomain);
@@ -97,19 +90,26 @@ public class JpaInventoryRepositoryAdapter implements InventoryItemRepository, R
 
     /**
      * Persiste reserva e seus itens (reconstrucao completa).
+     *
+     * Ajustes para "tanque":
+     * - reservationId agora é ReservationId no dominio, mas é String no JPA => .value()
+     * - status agora é Enum no JPA => setStatus(reservation.getStatus())
      */
     @Override
     public Reservation save(Reservation reservation) {
-        JpaReservationEntity e = reservationRepo.findById(reservation.getReservationId())
+
+        String reservationId = reservation.getReservationId().value();
+
+        JpaReservationEntity e = reservationRepo.findById(reservationId)
                 .orElseGet(() -> new JpaReservationEntity(
-                        reservation.getReservationId(),
+                        reservationId,
                         reservation.getOrderId().value(),
-                        reservation.getStatus().name(),
+                        reservation.getStatus(),           // Enum direto
                         reservation.getCreatedAt(),
                         reservation.getExpiresAt()
                 ));
 
-        e.setStatus(reservation.getStatus().name());
+        e.setStatus(reservation.getStatus());              // Enum direto
         e.setReason(reservation.getReason());
         e.setExpiresAt(reservation.getExpiresAt());
         e.setLastCommandId(reservation.getLastCommandId());
@@ -124,9 +124,6 @@ public class JpaInventoryRepositoryAdapter implements InventoryItemRepository, R
         return reservation;
     }
 
-    /**
-     * Busca reservas vencidas com limite de lote.
-     */
     @Override
     public List<Reservation> findExpiredReserved(Instant now, int limit) {
         List<JpaReservationEntity> list = reservationRepo.findExpiredReserved(now);
@@ -136,9 +133,6 @@ public class JpaInventoryRepositoryAdapter implements InventoryItemRepository, R
         return list.stream().map(this::toDomain).toList();
     }
 
-    /**
-     * Marca mensagem como processada, retornando false em duplicidade.
-     */
     @Override
     public boolean markProcessedIfFirst(String messageId, String messageType, String aggregateId, Instant processedAt) {
         try {
@@ -149,32 +143,37 @@ public class JpaInventoryRepositoryAdapter implements InventoryItemRepository, R
         }
     }
 
-    /**
-     * Converte entidade JPA em objeto de dominio.
-     */
     private InventoryItem toDomain(JpaInventoryItemEntity e) {
         return new InventoryItem(new ProductId(e.getProductId()), e.getOnHand(), e.getReserved(), e.getUpdatedAt());
     }
 
     /**
      * Converte entidade JPA de reserva em objeto de dominio.
+     *
+     * Ajustes para "tanque":
+     * - status no JPA já é ReservationStatus (Enum) => sem valueOf
+     * - reidratação deve usar Reservation.restore(...) para poder carregar itens
+     *   mesmo se reserva estiver fechada (evita chamar addItem() e estourar regra).
      */
     private Reservation toDomain(JpaReservationEntity e) {
-        Reservation r = new Reservation(
-                e.getReservationId(),
+
+        List<ReservationItem> items = e.getItems().stream()
+                .map(it -> new ReservationItem(
+                        new ProductId(it.getProductId()),
+                        new Quantity(it.getQuantity())
+                ))
+                .toList();
+
+        return Reservation.restore(
+                new ReservationId(e.getReservationId()),
                 new OrderId(e.getOrderId()),
-                ReservationStatus.valueOf(e.getStatus()),
+                e.getStatus(),              // Enum direto
                 e.getReason(),
                 e.getCreatedAt(),
                 e.getExpiresAt(),
                 e.getLastCommandId(),
-                e.getCorrelationId()
+                e.getCorrelationId(),
+                items
         );
-
-        for (JpaReservationItemEntity item : e.getItems()) {
-            r.addItem(new ProductId(item.getProductId()), new Quantity(item.getQuantity()));
-        }
-
-        return r;
     }
 }

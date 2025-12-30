@@ -1,8 +1,11 @@
 package com.mvbr.retailstore.inventory.infrastructure.adapter.out.persistence;
 
+import com.mvbr.retailstore.inventory.domain.model.ReservationStatus;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
@@ -13,9 +16,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Entidade JPA para reservas de estoque.
- */
 @Entity
 @Table(
         name = "inventory_reservations",
@@ -33,8 +33,9 @@ public class JpaReservationEntity {
     @Column(name = "order_id", nullable = false, length = 64, unique = true)
     private String orderId;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 16)
-    private String status;
+    private ReservationStatus status;
 
     @Column(name = "reason", length = 128)
     private String reason;
@@ -54,12 +55,11 @@ public class JpaReservationEntity {
     @OneToMany(mappedBy = "reservation", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<JpaReservationItemEntity> items = new ArrayList<>();
 
-    protected JpaReservationEntity() {
-    }
+    protected JpaReservationEntity() { }
 
     public JpaReservationEntity(String reservationId,
                                 String orderId,
-                                String status,
+                                ReservationStatus status,
                                 Instant createdAt,
                                 Instant expiresAt) {
         this.reservationId = reservationId;
@@ -71,7 +71,7 @@ public class JpaReservationEntity {
 
     public String getReservationId() { return reservationId; }
     public String getOrderId() { return orderId; }
-    public String getStatus() { return status; }
+    public ReservationStatus getStatus() { return status; }
     public String getReason() { return reason; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getExpiresAt() { return expiresAt; }
@@ -79,23 +79,17 @@ public class JpaReservationEntity {
     public String getCorrelationId() { return correlationId; }
     public List<JpaReservationItemEntity> getItems() { return items; }
 
-    public void setStatus(String status) { this.status = status; }
+    public void setStatus(ReservationStatus status) { this.status = status; }
     public void setReason(String reason) { this.reason = reason; }
     public void setExpiresAt(Instant expiresAt) { this.expiresAt = expiresAt; }
     public void setLastCommandId(String lastCommandId) { this.lastCommandId = lastCommandId; }
     public void setCorrelationId(String correlationId) { this.correlationId = correlationId; }
 
-    /**
-     * Adiciona item vinculando com a reserva.
-     */
     public void addItem(JpaReservationItemEntity item) {
         items.add(item);
         item.setReservation(this);
     }
 
-    /**
-     * Remove itens atuais antes de reconstruir a lista.
-     */
     public void clearItems() {
         items.forEach(i -> i.setReservation(null));
         items.clear();
