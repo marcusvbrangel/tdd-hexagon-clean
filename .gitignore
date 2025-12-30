@@ -34,3 +34,6 @@ build/
 
 ### Maven local repository ###
 .m2/
+
+# IntelliJ
+.idea/
