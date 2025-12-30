@@ -6,10 +6,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Ponto de entrada do microservico de inventory.
- * Habilita jobs de expiracao e relays agendados.
  */
 @SpringBootApplication
-@EnableScheduling
 public class InventoryApplication {
 
     /**

@@ -1,11 +1,10 @@
 package com.mvbr.retailstore.inventory.config;
 
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.TopicNames;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.TopicNames;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.ssl.SslBundles;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,13 +24,19 @@ public class KafkaConfig {
 
     /**
      * Cria topicos do inventory no ambiente local quando autoCreate esta habilitado.
+     * Le de inventory.kafka.topics.*
      */
     @Bean
-    @ConditionalOnProperty(prefix = "kafka.topics", name = "autoCreate", havingValue = "true", matchIfMissing = true)
-    public KafkaAdmin.NewTopics inventoryTopics(
-            @Value("${kafka.topics.partitions:3}") int partitions,
-            @Value("${kafka.topics.replicationFactor:1}") short replicationFactor
-    ) {
+    @ConditionalOnProperty(
+            prefix = "inventory.kafka.topics",
+            name = "autoCreate",
+            havingValue = "true",
+            matchIfMissing = true
+    )
+    public KafkaAdmin.NewTopics inventoryTopics(InventoryKafkaTopicsProperties topicsProps) {
+        int partitions = topicsProps.getPartitions();
+        short replicationFactor = topicsProps.getReplicationFactor();
+
         return new KafkaAdmin.NewTopics(
                 topic(TopicNames.INVENTORY_COMMANDS_V1, partitions, replicationFactor),
                 topic(TopicNames.INVENTORY_EVENTS_V1, partitions, replicationFactor)

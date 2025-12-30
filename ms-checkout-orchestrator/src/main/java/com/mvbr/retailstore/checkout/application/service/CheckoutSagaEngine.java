@@ -410,7 +410,7 @@ public class CheckoutSagaEngine {
     }
 
     /**
-     * Resolve o orderId priorizando o payload e usando o header como fallback.
+     * Resolve o orderId priorizando o payload e usando o headers como fallback.
      */
     private String resolveOrderId(String eventOrderId, EventEnvelope env) {
         if (eventOrderId != null && !eventOrderId.isBlank()) {

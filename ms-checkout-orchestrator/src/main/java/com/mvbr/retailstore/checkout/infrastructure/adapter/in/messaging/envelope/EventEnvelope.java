@@ -50,7 +50,7 @@ public record EventEnvelope(
     }
 
     /**
-     * Le um header do Kafka convertendo para string.
+     * Le um headers do Kafka convertendo para string.
      */
     private static Optional<String> header(ConsumerRecord<String, String> record, String name) {
         Header header = record.headers().lastHeader(name);

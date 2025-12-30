@@ -17,12 +17,12 @@ import com.mvbr.retailstore.inventory.domain.model.Quantity;
 import com.mvbr.retailstore.inventory.domain.model.Reservation;
 import com.mvbr.retailstore.inventory.domain.model.ReservationItem;
 import com.mvbr.retailstore.inventory.domain.model.ReservationStatus;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.TopicNames;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto.InventoryCommittedEventV1;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto.InventoryRejectedEventV1;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto.InventoryReleasedEventV1;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto.InventoryReservedEventV1;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.headers.SagaHeaders;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.TopicNames;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.dto.InventoryCommittedEventV1;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.dto.InventoryRejectedEventV1;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.dto.InventoryReleasedEventV1;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.dto.InventoryReservedEventV1;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.headers.SagaHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 

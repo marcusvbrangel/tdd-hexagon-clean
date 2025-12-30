@@ -47,7 +47,7 @@ public class OrderCommandConsumer {
                 .orElseGet(() -> header(record, HeaderNames.EVENT_TYPE).orElse(""));
 
         if (commandType == null || commandType.isBlank()) {
-            log.warning("OrderCommandConsumer: missing command type header. Ignoring message.");
+            log.warning("OrderCommandConsumer: missing command type headers. Ignoring message.");
             return;
         }
 

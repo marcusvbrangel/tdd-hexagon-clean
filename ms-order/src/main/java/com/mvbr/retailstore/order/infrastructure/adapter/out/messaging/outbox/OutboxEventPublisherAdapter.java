@@ -31,7 +31,7 @@ public class OutboxEventPublisherAdapter implements EventPublisher {
     // Canal (domínio + categoria + versão)
     private static final String ORDER_EVENTS_TOPIC = "order.events.v1";
 
-    // Versão “lógica” do canal (vai em header x-topic-version)
+    // Versão “lógica” do canal (vai em headers x-topic-version)
     private static final String TOPIC_VERSION = "v1";
 
     private final OutboxJpaRepository outboxRepository;

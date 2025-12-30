@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ExternalStorageConfigurationManager" enabled="true" />
+  <component name="MavenProjectsManager">
+    <option name="originalFiles">
+      <list>
+        <option value="$PROJECT_DIR$/ms-invoicing/pom.xml" />
+        <option value="$PROJECT_DIR$/ms-notification/pom.xml" />
+        <option value="$PROJECT_DIR$/ms-order/pom.xml" />
+        <option value="$PROJECT_DIR$/ms-payment/pom.xml" />
+        <option value="$PROJECT_DIR$/ms-shipping/pom.xml" />
+        <option value="$PROJECT_DIR$/ms-invoice/pom.xml" />
+        <option value="$PROJECT_DIR$/ms-customer/pom.xml" />
+        <option value="$PROJECT_DIR$/ms-checkout-orchestrator/pom.xml" />
+        <option value="$PROJECT_DIR$/ms-inventory/pom.xml" />
+      </list>
+    </option>
+  </component>
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_25" project-jdk-name="temurin-21" project-jdk-type="JavaSDK" />
+</project>

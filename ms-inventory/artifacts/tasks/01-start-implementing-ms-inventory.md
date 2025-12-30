@@ -1806,10 +1806,10 @@ import com.mvbr.retailstore.inventory.application.command.ReserveInventoryItemCo
 import com.mvbr.retailstore.inventory.application.command.SagaContext;
 import com.mvbr.retailstore.inventory.application.port.in.ReleaseInventoryUseCase;
 import com.mvbr.retailstore.inventory.application.port.in.ReserveInventoryUseCase;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.TopicNames;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto.InventoryReleaseCommandV1;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto.InventoryReserveCommandV1;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.headers.HeaderNames;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.TopicNames;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.dto.InventoryReleaseCommandV1;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.dto.InventoryReserveCommandV1;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.headers.HeaderNames;
 import org.apache.kafka.common.header.Headers;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Headers as SpringHeaders;
@@ -1954,8 +1954,8 @@ package com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.outb
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mvbr.retailstore.inventory.application.port.out.EventPublisher;
 import com.mvbr.retailstore.inventory.domain.event.DomainEvent;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.outbox.OutboxJpaRepository;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.outbox.OutboxMessageJpaEntity;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.outbox.persistence.OutboxJpaRepository;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.outbox.persistence.OutboxMessageJpaEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -2284,8 +2284,8 @@ package com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.outb
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mvbr.retailstore.inventory.application.port.out.EventPublisher;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.outbox.OutboxJpaRepository;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.outbox.OutboxMessageJpaEntity;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.outbox.persistence.OutboxJpaRepository;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.outbox.persistence.OutboxMessageJpaEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -2403,11 +2403,11 @@ package com.mvbr.retailstore.inventory.application.service;
 
 import com.mvbr.retailstore.inventory.application.command.SagaContext;
 import com.mvbr.retailstore.inventory.application.port.out.EventPublisher;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.TopicNames;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto.InventoryRejectedEventV1;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto.InventoryReleasedEventV1;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto.InventoryReservedEventV1;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.headers.HeaderNames;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.TopicNames;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.dto.InventoryRejectedEventV1;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.dto.InventoryReleasedEventV1;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.dto.InventoryReservedEventV1;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.headers.HeaderNames;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -2916,8 +2916,8 @@ package com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.outb
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mvbr.retailstore.inventory.application.port.out.EventPublisher;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.outbox.OutboxJpaRepository;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.outbox.OutboxMessageJpaEntity;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.outbox.persistence.OutboxJpaRepository;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.outbox.persistence.OutboxMessageJpaEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -3687,11 +3687,11 @@ import com.mvbr.retailstore.inventory.application.port.out.InventoryItemReposito
 import com.mvbr.retailstore.inventory.application.port.out.ProcessedMessageRepository;
 import com.mvbr.retailstore.inventory.application.port.out.ReservationRepository;
 import com.mvbr.retailstore.inventory.domain.model.*;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.TopicNames;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto.InventoryRejectedEventV1;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto.InventoryReleasedEventV1;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.dto.InventoryReservedEventV1;
-import com.mvbr.retailstore.inventory.infrastructure.adapter.out.messaging.headers.HeaderNames;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.TopicNames;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.dto.InventoryRejectedEventV1;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.dto.InventoryReleasedEventV1;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.dto.InventoryReservedEventV1;
+import com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.headers.HeaderNames;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 

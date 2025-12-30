@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="Encoding">
+    <file url="file://$PROJECT_DIR$/ms-checkout-orchestrator/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/ms-customer/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/ms-inventory/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/ms-invoice/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/ms-notification/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/ms-order/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/ms-payment/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/ms-shipping/src/main/java" charset="UTF-8" />
+  </component>
+</project>

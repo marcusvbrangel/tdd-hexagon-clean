@@ -47,7 +47,7 @@ public final class SagaHeaders {
                                             String topicVersion) {
 
         // ============================
-        // Hard requirements (não deixa header “podre” sair)
+        // Hard requirements (não deixa headers “podre” sair)
         // ============================
         if (eventId == null || eventId.isBlank()) {
             throw new IllegalArgumentException("eventId is required");

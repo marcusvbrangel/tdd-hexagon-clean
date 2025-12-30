@@ -48,7 +48,7 @@ public class PaymentCommandConsumer {
                 .orElseGet(() -> header(record, HeaderNames.EVENT_TYPE).orElse(""));
 
         if (commandType == null || commandType.isBlank()) {
-            log.warning("PaymentCommandConsumer: missing command type header. Ignoring message.");
+            log.warning("PaymentCommandConsumer: missing command type headers. Ignoring message.");
             return;
         }
 

@@ -1,8 +1,9 @@
 package com.mvbr.retailstore.inventory.config;
 
-/**
- * Placeholder para ajustes de scheduling.
- * O @EnableScheduling ja esta habilitado no InventoryApplication.
- */
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
+
+@EnableScheduling
+@Configuration
 public class SchedulingConfig {
 }

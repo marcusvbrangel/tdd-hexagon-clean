@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="ms-notification" />
+        <module name="ms-customer" />
+        <module name="ms-shipping" />
+        <module name="ms-invoice" />
+        <module name="ms-payment" />
+        <module name="ms-checkout-orchestrator" />
+        <module name="ms-inventory" />
+        <module name="ms-order" />
+      </profile>
+    </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="ms-invoicing" target="21" />
+    </bytecodeTargetLevel>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="ms-checkout-orchestrator" options="-parameters" />
+      <module name="ms-customer" options="-parameters" />
+      <module name="ms-inventory" options="-parameters" />
+      <module name="ms-invoice" options="-parameters" />
+      <module name="ms-invoicing" options="-parameters" />
+      <module name="ms-notification" options="-parameters" />
+      <module name="ms-order" options="-parameters" />
+      <module name="ms-payment" options="-parameters" />
+      <module name="ms-shipping" options="-parameters" />
+    </option>
+  </component>
+</project>

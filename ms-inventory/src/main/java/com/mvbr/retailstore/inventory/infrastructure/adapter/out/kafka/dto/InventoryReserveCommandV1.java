@@ -1,0 +1,14 @@
+package com.mvbr.retailstore.inventory.infrastructure.adapter.out.kafka.dto;
+
+import java.util.List;
+
+public record InventoryReserveCommandV1(
+        String commandId,
+        String occurredAt,
+        String orderId,
+        List<Item> items
+) {
+
+    public record Item(String productId, long quantity) {
+    }
+}
