@@ -17,6 +17,7 @@ import com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.mapper.Or
 import com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.mapper.OrderCompletedEventMapper;
 import com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.mapper.OrderConfirmedEventMapper;
 import com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.mapper.OrderPlacedEventMapper;
+import com.mvbr.retailstore.order.infrastructure.observability.OrderBusinessMetrics;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
@@ -36,15 +37,20 @@ public class OutboxEventPublisherAdapter implements EventPublisher {
 
     private final OutboxJpaRepository outboxRepository;
     private final ObjectMapper objectMapper;
+    private final OrderBusinessMetrics metrics;
 
-    public OutboxEventPublisherAdapter(OutboxJpaRepository outboxRepository, ObjectMapper objectMapper) {
+    public OutboxEventPublisherAdapter(OutboxJpaRepository outboxRepository,
+                                       ObjectMapper objectMapper,
+                                       OrderBusinessMetrics metrics) {
         this.outboxRepository = outboxRepository;
         this.objectMapper = objectMapper;
+        this.metrics = metrics;
     }
 
     @Override
     public void publish(DomainEvent event) {
         outboxRepository.save(toOutboxMessage(event));
+        metrics.record(event);
     }
 
     private OutboxMessageJpaEntity toOutboxMessage(DomainEvent event) {

@@ -1,0 +1,15 @@
+{
+  "apiVersion": 1,
+  "providers": [
+    {
+      "name": "retail-store",
+      "folder": "Retail Store",
+      "type": "file",
+      "disableDeletion": false,
+      "editable": true,
+      "options": {
+        "path": "/etc/grafana/provisioning/dashboards"
+      }
+    }
+  ]
+}

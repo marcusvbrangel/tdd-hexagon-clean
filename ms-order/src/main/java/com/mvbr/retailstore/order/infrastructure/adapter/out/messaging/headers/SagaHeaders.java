@@ -5,7 +5,6 @@ import org.slf4j.MDC;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 public final class SagaHeaders {
 
@@ -89,7 +88,7 @@ public final class SagaHeaders {
         // Correlation / causation
         // ============================
         String correlationId = resolveFromMdc(HeaderNames.CORRELATION_ID)
-                .orElseGet(() -> UUID.randomUUID().toString());
+                .orElse(eventId);
         headers.put(HeaderNames.CORRELATION_ID, correlationId);
 
         // Se não vier do MDC, usa o próprio eventId (cadeia mínima útil)

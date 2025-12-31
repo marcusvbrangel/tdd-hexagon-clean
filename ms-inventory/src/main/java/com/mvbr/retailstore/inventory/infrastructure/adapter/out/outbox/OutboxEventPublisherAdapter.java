@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mvbr.retailstore.inventory.application.port.out.EventPublisher;
 import com.mvbr.retailstore.inventory.infrastructure.adapter.out.outbox.persistence.OutboxJpaRepository;
 import com.mvbr.retailstore.inventory.infrastructure.adapter.out.outbox.persistence.OutboxMessageJpaEntity;
+import com.mvbr.retailstore.inventory.infrastructure.observability.InventoryBusinessMetrics;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,10 +21,14 @@ public class OutboxEventPublisherAdapter implements EventPublisher {
 
     private final OutboxJpaRepository outboxRepository;
     private final ObjectMapper objectMapper;
+    private final InventoryBusinessMetrics metrics;
 
-    public OutboxEventPublisherAdapter(OutboxJpaRepository outboxRepository, ObjectMapper objectMapper) {
+    public OutboxEventPublisherAdapter(OutboxJpaRepository outboxRepository,
+                                       ObjectMapper objectMapper,
+                                       InventoryBusinessMetrics metrics) {
         this.outboxRepository = outboxRepository;
         this.objectMapper = objectMapper;
+        this.metrics = metrics;
     }
 
     /**
@@ -56,6 +61,7 @@ public class OutboxEventPublisherAdapter implements EventPublisher {
             );
 
             outboxRepository.save(msg);
+            metrics.record(eventType, payload);
         } catch (Exception e) {
             throw new RuntimeException("Failed to write outbox message for eventType=" + eventType, e);
         }

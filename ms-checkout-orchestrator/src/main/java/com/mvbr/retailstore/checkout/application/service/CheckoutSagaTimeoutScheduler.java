@@ -4,6 +4,7 @@ import com.mvbr.retailstore.checkout.application.port.out.CheckoutSagaRepository
 import com.mvbr.retailstore.checkout.config.SagaProperties;
 import com.mvbr.retailstore.checkout.domain.model.CheckoutSaga;
 import com.mvbr.retailstore.checkout.domain.model.SagaStep;
+import com.mvbr.retailstore.checkout.infrastructure.observability.CheckoutBusinessMetrics;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,13 +32,16 @@ public class CheckoutSagaTimeoutScheduler {
     private final CheckoutSagaRepository sagaRepository;
     private final CheckoutSagaCommandSender commandSender;
     private final SagaProperties sagaProperties;
+    private final CheckoutBusinessMetrics metrics;
 
     public CheckoutSagaTimeoutScheduler(CheckoutSagaRepository sagaRepository,
                                         CheckoutSagaCommandSender commandSender,
-                                        SagaProperties sagaProperties) {
+                                        SagaProperties sagaProperties,
+                                        CheckoutBusinessMetrics metrics) {
         this.sagaRepository = sagaRepository;
         this.commandSender = commandSender;
         this.sagaProperties = sagaProperties;
+        this.metrics = metrics;
     }
 
     /**
@@ -62,6 +66,7 @@ public class CheckoutSagaTimeoutScheduler {
      */
     private void handleTimeout(CheckoutSaga saga) {
         String causationId = Optional.ofNullable(saga.getLastEventId()).orElse(saga.getSagaId());
+        metrics.recordTimeout(saga.getStep());
         switch (saga.getStep()) {
             case WAIT_INVENTORY -> handleInventoryTimeout(saga, causationId);
             case WAIT_PAYMENT -> handlePaymentTimeout(saga, causationId);
@@ -82,6 +87,7 @@ public class CheckoutSagaTimeoutScheduler {
             saga.getOrCreateInventoryReserveCommandId();
             sagaRepository.save(saga);
             commandSender.sendInventoryReserve(saga, causationId, SagaStep.WAIT_INVENTORY.name());
+            metrics.recordRetry(SagaStep.WAIT_INVENTORY);
             return;
         }
 
@@ -90,6 +96,7 @@ public class CheckoutSagaTimeoutScheduler {
         saga.getOrCreateOrderCancelCommandId();
         sagaRepository.save(saga);
         commandSender.sendOrderCancel(saga, causationId, SagaStep.COMPENSATING.name(), REASON_INVENTORY_TIMEOUT);
+        metrics.recordSagaOutcome("canceled", "inventory_timeout");
     }
 
     /**
@@ -102,6 +109,7 @@ public class CheckoutSagaTimeoutScheduler {
             saga.getOrCreatePaymentAuthorizeCommandId();
             sagaRepository.save(saga);
             commandSender.sendPaymentAuthorize(saga, causationId, SagaStep.WAIT_PAYMENT.name());
+            metrics.recordRetry(SagaStep.WAIT_PAYMENT);
             return;
         }
 
@@ -112,6 +120,7 @@ public class CheckoutSagaTimeoutScheduler {
         sagaRepository.save(saga);
         commandSender.sendInventoryRelease(saga, causationId, SagaStep.COMPENSATING.name());
         commandSender.sendOrderCancel(saga, causationId, SagaStep.COMPENSATING.name(), REASON_PAYMENT_TIMEOUT);
+        metrics.recordSagaOutcome("canceled", "payment_timeout");
     }
 
     /**
@@ -125,12 +134,14 @@ public class CheckoutSagaTimeoutScheduler {
             saga.getOrCreateOrderCompleteCommandId();
             sagaRepository.save(saga);
             commandSender.sendOrderComplete(saga, causationId, SagaStep.WAIT_ORDER_COMPLETION.name());
+            metrics.recordRetry(SagaStep.WAIT_ORDER_COMPLETION);
             return;
         }
 
         saga.markOrderCanceled(REASON_ORDER_TIMEOUT);
         saga.clearOrderCompleteCommandId();
         sagaRepository.save(saga);
+        metrics.recordSagaOutcome("canceled", "order_timeout");
     }
 
     /**
@@ -144,6 +155,7 @@ public class CheckoutSagaTimeoutScheduler {
             saga.getOrCreatePaymentCaptureCommandId();
             sagaRepository.save(saga);
             commandSender.sendPaymentCapture(saga, causationId, SagaStep.WAIT_PAYMENT_CAPTURE.name());
+            metrics.recordRetry(SagaStep.WAIT_PAYMENT_CAPTURE);
             return;
         }
 
@@ -152,6 +164,7 @@ public class CheckoutSagaTimeoutScheduler {
         saga.getOrCreateInventoryReleaseCommandId();
         sagaRepository.save(saga);
         commandSender.sendInventoryRelease(saga, causationId, SagaStep.COMPENSATING.name());
+        metrics.recordSagaOutcome("canceled", "payment_capture_timeout");
     }
 
     /**
@@ -165,12 +178,14 @@ public class CheckoutSagaTimeoutScheduler {
             saga.getOrCreateInventoryCommitCommandId();
             sagaRepository.save(saga);
             commandSender.sendInventoryCommit(saga, causationId, SagaStep.WAIT_INVENTORY_COMMIT.name());
+            metrics.recordRetry(SagaStep.WAIT_INVENTORY_COMMIT);
             return;
         }
 
         saga.markInventoryCommitFailed(REASON_INVENTORY_COMMIT_TIMEOUT);
         saga.clearInventoryCommitCommandId();
         sagaRepository.save(saga);
+        metrics.recordSagaOutcome("canceled", "inventory_commit_timeout");
     }
 
     /**

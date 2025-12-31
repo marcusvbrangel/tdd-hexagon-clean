@@ -19,6 +19,8 @@ import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.Pa
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentCapturedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentCaptureFailedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentDeclinedEventV1;
+import com.mvbr.retailstore.checkout.infrastructure.observability.BusinessSpan;
+import com.mvbr.retailstore.checkout.infrastructure.observability.CheckoutBusinessMetrics;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,17 +47,20 @@ public class CheckoutSagaEngine {
     private final CheckoutSagaCommandSender commandSender;
     private final ObjectMapper objectMapper;
     private final SagaProperties sagaProperties;
+    private final CheckoutBusinessMetrics metrics;
 
     public CheckoutSagaEngine(CheckoutSagaRepository sagaRepository,
                               ProcessedEventRepository processedEventRepository,
                               CheckoutSagaCommandSender commandSender,
                               ObjectMapper objectMapper,
-                              SagaProperties sagaProperties) {
+                              SagaProperties sagaProperties,
+                              CheckoutBusinessMetrics metrics) {
         this.sagaRepository = sagaRepository;
         this.processedEventRepository = processedEventRepository;
         this.commandSender = commandSender;
         this.objectMapper = objectMapper;
         this.sagaProperties = sagaProperties;
+        this.metrics = metrics;
     }
 
     /**
@@ -126,6 +131,8 @@ public class CheckoutSagaEngine {
             return;
         }
 
+        metrics.recordOrderPlaced(placed);
+
         AmountSummary summary = resolveAmount(placed, orderId);
         List<CheckoutSagaItem> items = toSagaItems(placed.items());
 
@@ -141,7 +148,8 @@ public class CheckoutSagaEngine {
         saga.recordLastEvent(env.eventId());
         sagaRepository.save(saga);
 
-        commandSender.sendInventoryReserve(saga, env.eventId(), SagaStep.WAIT_INVENTORY.name());
+        BusinessSpan.inSpan("saga.reserve_inventory", () ->
+                commandSender.sendInventoryReserve(saga, env.eventId(), SagaStep.WAIT_INVENTORY.name()));
     }
 
     /**
@@ -164,7 +172,8 @@ public class CheckoutSagaEngine {
         saga.recordLastEvent(env.eventId());
         sagaRepository.save(saga);
 
-        commandSender.sendPaymentAuthorize(saga, env.eventId(), SagaStep.WAIT_PAYMENT.name());
+        BusinessSpan.inSpan("saga.authorize_payment", () ->
+                commandSender.sendPaymentAuthorize(saga, env.eventId(), SagaStep.WAIT_PAYMENT.name()));
     }
 
     /**
@@ -188,7 +197,9 @@ public class CheckoutSagaEngine {
         saga.recordLastEvent(env.eventId());
         sagaRepository.save(saga);
 
-        commandSender.sendOrderCancel(saga, env.eventId(), SagaStep.COMPENSATING.name(), REASON_INVENTORY_REJECTED);
+        BusinessSpan.inSpan("saga.compensate_inventory", () ->
+                commandSender.sendOrderCancel(saga, env.eventId(), SagaStep.COMPENSATING.name(), REASON_INVENTORY_REJECTED));
+        metrics.recordSagaOutcome("canceled", "inventory_rejected");
     }
 
     /**
@@ -236,8 +247,11 @@ public class CheckoutSagaEngine {
         saga.recordLastEvent(env.eventId());
         sagaRepository.save(saga);
 
-        commandSender.sendInventoryRelease(saga, env.eventId(), SagaStep.COMPENSATING.name());
-        commandSender.sendOrderCancel(saga, env.eventId(), SagaStep.COMPENSATING.name(), REASON_PAYMENT_DECLINED);
+        BusinessSpan.inSpan("saga.release_inventory", () ->
+                commandSender.sendInventoryRelease(saga, env.eventId(), SagaStep.COMPENSATING.name()));
+        BusinessSpan.inSpan("saga.compensate_payment", () ->
+                commandSender.sendOrderCancel(saga, env.eventId(), SagaStep.COMPENSATING.name(), REASON_PAYMENT_DECLINED));
+        metrics.recordSagaOutcome("canceled", "payment_declined");
     }
 
     /**
@@ -260,7 +274,8 @@ public class CheckoutSagaEngine {
         saga.recordLastEvent(env.eventId());
         sagaRepository.save(saga);
 
-        commandSender.sendPaymentCapture(saga, env.eventId(), SagaStep.WAIT_PAYMENT_CAPTURE.name());
+        BusinessSpan.inSpan("saga.capture_payment", () ->
+                commandSender.sendPaymentCapture(saga, env.eventId(), SagaStep.WAIT_PAYMENT_CAPTURE.name()));
     }
 
     /**
@@ -278,6 +293,7 @@ public class CheckoutSagaEngine {
             saga.clearOrderCancelCommandId();
             saga.recordLastEvent(env.eventId());
             sagaRepository.save(saga);
+            metrics.recordSagaOutcome("canceled", "order_canceled");
         }
     }
 
@@ -331,7 +347,8 @@ public class CheckoutSagaEngine {
         saga.recordLastEvent(env.eventId());
         sagaRepository.save(saga);
 
-        commandSender.sendInventoryCommit(saga, env.eventId(), SagaStep.WAIT_INVENTORY_COMMIT.name());
+        BusinessSpan.inSpan("saga.commit_inventory", () ->
+                commandSender.sendInventoryCommit(saga, env.eventId(), SagaStep.WAIT_INVENTORY_COMMIT.name()));
     }
 
     /**
@@ -355,7 +372,9 @@ public class CheckoutSagaEngine {
         saga.recordLastEvent(env.eventId());
         sagaRepository.save(saga);
 
-        commandSender.sendInventoryRelease(saga, env.eventId(), SagaStep.COMPENSATING.name());
+        BusinessSpan.inSpan("saga.release_inventory", () ->
+                commandSender.sendInventoryRelease(saga, env.eventId(), SagaStep.COMPENSATING.name()));
+        metrics.recordSagaOutcome("canceled", "payment_capture_failed");
     }
 
     /**
@@ -376,6 +395,7 @@ public class CheckoutSagaEngine {
         saga.clearInventoryCommitCommandId();
         saga.recordLastEvent(env.eventId());
         sagaRepository.save(saga);
+        metrics.recordSagaOutcome("completed", "none");
     }
 
     /**

@@ -60,7 +60,7 @@ class StripeWebhookControllerTest {
     private String signedHeader(String payload, String secret) throws Exception {
         long timestamp = Webhook.Util.getTimeNow();
         String signedPayload = timestamp + "." + payload;
-        String signature = Webhook.Util.computeHmacSha256(signedPayload, secret);
+        String signature = Webhook.Util.computeHmacSha256(secret, signedPayload);
         return "t=" + timestamp + ",v1=" + signature;
     }
 }

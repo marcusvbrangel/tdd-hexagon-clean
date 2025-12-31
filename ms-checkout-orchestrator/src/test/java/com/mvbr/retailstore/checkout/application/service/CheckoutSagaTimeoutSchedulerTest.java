@@ -8,6 +8,8 @@ import com.mvbr.retailstore.checkout.domain.model.CheckoutSagaItem;
 import com.mvbr.retailstore.checkout.domain.model.SagaStatus;
 import com.mvbr.retailstore.checkout.domain.model.SagaStep;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentAuthorizeCommandV1;
+import com.mvbr.retailstore.checkout.infrastructure.observability.CheckoutBusinessMetrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -42,7 +44,8 @@ class CheckoutSagaTimeoutSchedulerTest {
         CheckoutSagaTimeoutScheduler scheduler = new CheckoutSagaTimeoutScheduler(
                 sagaRepository,
                 new CheckoutSagaCommandSender(publisher),
-                sagaProperties
+                sagaProperties,
+                metrics()
         );
 
         scheduler.tick();
@@ -76,7 +79,8 @@ class CheckoutSagaTimeoutSchedulerTest {
         CheckoutSagaTimeoutScheduler scheduler = new CheckoutSagaTimeoutScheduler(
                 sagaRepository,
                 new CheckoutSagaCommandSender(publisher),
-                sagaProperties
+                sagaProperties,
+                metrics()
         );
 
         scheduler.tick();
@@ -112,7 +116,8 @@ class CheckoutSagaTimeoutSchedulerTest {
         CheckoutSagaTimeoutScheduler scheduler = new CheckoutSagaTimeoutScheduler(
                 sagaRepository,
                 new CheckoutSagaCommandSender(publisher),
-                sagaProperties
+                sagaProperties,
+                metrics()
         );
 
         scheduler.tick();
@@ -149,7 +154,8 @@ class CheckoutSagaTimeoutSchedulerTest {
         CheckoutSagaTimeoutScheduler scheduler = new CheckoutSagaTimeoutScheduler(
                 sagaRepository,
                 new CheckoutSagaCommandSender(publisher),
-                sagaProperties
+                sagaProperties,
+                metrics()
         );
 
         scheduler.tick();
@@ -212,4 +218,8 @@ class CheckoutSagaTimeoutSchedulerTest {
             Object payload,
             Map<String, String> headers
     ) {}
+
+    private CheckoutBusinessMetrics metrics() {
+        return new CheckoutBusinessMetrics(new SimpleMeterRegistry());
+    }
 }

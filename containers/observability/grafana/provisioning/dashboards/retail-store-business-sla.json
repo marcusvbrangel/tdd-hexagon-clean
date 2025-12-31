@@ -1,0 +1,295 @@
+{
+  "uid": "retail-store-business-sla",
+  "title": "Retail Store - Business SLA",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "tags": [
+    "retail-store",
+    "business",
+    "sla"
+  ],
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        },
+        "stacking": {
+          "mode": "none"
+        }
+      },
+      "id": 1,
+      "title": "Order completion rate (finalized) %",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({service=\"ms-order\"} | json | event_type=\"order.completed\" [5m])) / sum(count_over_time({service=\"ms-order\"} | json | event_type=~\"order.completed|order.canceled\" [5m])) * 100",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        },
+        "stacking": {
+          "mode": "none"
+        }
+      },
+      "id": 2,
+      "title": "Order cancellation rate (finalized) %",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({service=\"ms-order\"} | json | event_type=\"order.canceled\" [5m])) / sum(count_over_time({service=\"ms-order\"} | json | event_type=~\"order.completed|order.canceled\" [5m])) * 100",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        },
+        "stacking": {
+          "mode": "none"
+        }
+      },
+      "id": 3,
+      "title": "Payment authorization rate %",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({service=\"ms-payment\"} | json | event_type=\"payment.authorized\" [5m])) / sum(count_over_time({service=\"ms-payment\"} | json | event_type=~\"payment.authorized|payment.declined\" [5m])) * 100",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        },
+        "stacking": {
+          "mode": "none"
+        }
+      },
+      "id": 4,
+      "title": "Payment capture rate %",
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({service=\"ms-payment\"} | json | event_type=\"payment.captured\" [5m])) / sum(count_over_time({service=\"ms-payment\"} | json | event_type=~\"payment.captured|payment.capture_failed|payment.failed\" [5m])) * 100",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        },
+        "stacking": {
+          "mode": "none"
+        }
+      },
+      "id": 5,
+      "title": "Inventory reserve success rate %",
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({service=\"ms-inventory\"} | json | event_type=\"inventory.reserved\" [5m])) / sum(count_over_time({service=\"ms-inventory\"} | json | event_type=~\"inventory.reserved|inventory.rejected\" [5m])) * 100",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        },
+        "stacking": {
+          "mode": "none"
+        }
+      },
+      "id": 6,
+      "title": "Inventory commit rate %",
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({service=\"ms-inventory\"} | json | event_type=\"inventory.committed\" [5m])) / sum(count_over_time({service=\"ms-inventory\"} | json | event_type=~\"inventory.committed|inventory.released\" [5m])) * 100",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        },
+        "stacking": {
+          "mode": "none"
+        }
+      },
+      "id": 7,
+      "title": "End-to-end success (placed -> completed) %",
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({service=\"ms-order\"} | json | event_type=\"order.completed\" [15m])) / sum(count_over_time({service=\"ms-order\"} | json | event_type=\"order.placed\" [15m])) * 100",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

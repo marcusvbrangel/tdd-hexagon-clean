@@ -10,6 +10,7 @@ import com.mvbr.retailstore.order.domain.model.CustomerId;
 import com.mvbr.retailstore.order.domain.model.Money;
 import com.mvbr.retailstore.order.domain.model.Order;
 import com.mvbr.retailstore.order.domain.model.OrderId;
+import com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.headers.HeaderNames;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -61,7 +62,7 @@ class OutboxIntegrationTest {
         assertThat(msg.getTopic()).isEqualTo("order.events.v1");
         assertThat(msg.getEventId()).isNotBlank();
         assertThat(msg.getOccurredAt()).isNotNull();
-        assertThat(msg.getHeadersJson()).contains("schemaVersion", "eventType", "ms-order");
+        assertThat(msg.getHeadersJson()).contains(HeaderNames.SCHEMA_VERSION, HeaderNames.EVENT_TYPE, "ms-order");
         assertThat(msg.getStatus()).isEqualTo(OutboxMessageJpaEntity.Status.PENDING.name());
         assertThat(msg.getRetryCount()).isZero();
         assertThat(msg.getNextAttemptAt()).isNotNull();
@@ -125,7 +126,7 @@ class OutboxIntegrationTest {
 
         Map<String, Object> payload = parsePayload(msg);
         assertThat(payload.get("orderId")).isEqualTo(orderId.value());
-        assertThat(payload.get("customerId")).isEqualTo("cust-2");
+        assertThat(payload.get("customerId")).isEqualTo("cust-cancel");
         assertThat(msg.getPayloadJson()).doesNotContain("\"value\"");
     }
 

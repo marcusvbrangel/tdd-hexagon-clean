@@ -1,6 +1,7 @@
 package com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.outbox;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.headers.HeaderNames;
 import com.mvbr.retailstore.order.infrastructure.adapter.out.messaging.headers.SagaHeaders;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.DisplayName;
@@ -63,9 +64,9 @@ class OutboxRelayTest {
         assertThat(record.topic()).isEqualTo("order.placed");
         assertThat(record.key()).isEqualTo("ord-123");
         assertThat(record.value()).isEqualTo("{\"eventId\":\"evt-123\"}");
-        assertThat(new String(record.headers().lastHeader("eventId").value(), StandardCharsets.UTF_8))
+        assertThat(new String(record.headers().lastHeader(HeaderNames.EVENT_ID).value(), StandardCharsets.UTF_8))
                 .isEqualTo("evt-123");
-        assertThat(new String(record.headers().lastHeader("eventType").value(), StandardCharsets.UTF_8))
+        assertThat(new String(record.headers().lastHeader(HeaderNames.EVENT_TYPE).value(), StandardCharsets.UTF_8))
                 .isEqualTo("OrderPlaced");
         assertThat(msg.getStatus()).isEqualTo(OutboxMessageJpaEntity.Status.PUBLISHED.name());
         verify(kafkaTemplate).send(any(ProducerRecord.class));

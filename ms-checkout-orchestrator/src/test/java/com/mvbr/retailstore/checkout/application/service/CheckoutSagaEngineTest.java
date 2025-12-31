@@ -20,6 +20,8 @@ import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.Pa
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentCaptureFailedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.dto.PaymentDeclinedEventV1;
 import com.mvbr.retailstore.checkout.infrastructure.adapter.out.messaging.headers.HeaderNames;
+import com.mvbr.retailstore.checkout.infrastructure.observability.CheckoutBusinessMetrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -367,12 +369,14 @@ class CheckoutSagaEngineTest {
                                          InMemoryProcessedEventRepository processedEventRepository,
                                          CapturingCommandPublisher publisher) {
         CheckoutSagaCommandSender sender = new CheckoutSagaCommandSender(publisher);
+        CheckoutBusinessMetrics metrics = new CheckoutBusinessMetrics(new SimpleMeterRegistry());
         return new CheckoutSagaEngine(
                 sagaRepository,
                 processedEventRepository,
                 sender,
                 objectMapper,
-                sagaProperties
+                sagaProperties,
+                metrics
         );
     }
 

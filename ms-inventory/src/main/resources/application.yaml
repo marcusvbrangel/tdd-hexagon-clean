@@ -1,5 +1,6 @@
 server:
   port: ${SERVER_PORT:8098}
+  address: 0.0.0.0
 
 spring:
   application:
@@ -55,6 +56,7 @@ spring:
         request.timeout.ms: 30000
         compression.type: snappy
         linger.ms: 5
+        interceptor.classes: com.mvbr.retailstore.inventory.infrastructure.observability.KafkaCorrelationProducerInterceptor
 
     consumer:
       group-id: ${KAFKA_CONSUMER_GROUP_ID:ms-inventory}
@@ -114,3 +116,17 @@ inventory:
     recovery:
       delay-ms: ${INVENTORY_INBOX_RECOVERY_DELAY_MS:5000}
       batch-size: ${INVENTORY_INBOX_RECOVERY_BATCH_SIZE:100}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      service: ${spring.application.name}
+      env: local

@@ -8,7 +8,7 @@ import com.tngtech.archunit.lang.ArchRule;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
-@AnalyzeClasses(packages = "com.mvbr.estudo.tdd", importOptions = DoNotIncludeTests.class)
+@AnalyzeClasses(packages = "com.mvbr.retailstore.order", importOptions = DoNotIncludeTests.class)
 class ArchitectureTest {
 
     @ArchTest

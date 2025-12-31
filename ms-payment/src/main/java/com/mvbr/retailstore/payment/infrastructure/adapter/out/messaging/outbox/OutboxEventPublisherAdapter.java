@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mvbr.retailstore.payment.application.port.out.EventPublisher;
 import com.mvbr.retailstore.payment.infrastructure.adapter.out.outbox.OutboxJpaRepository;
 import com.mvbr.retailstore.payment.infrastructure.adapter.out.outbox.OutboxMessageJpaEntity;
+import com.mvbr.retailstore.payment.infrastructure.observability.PaymentBusinessMetrics;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,10 +21,14 @@ public class OutboxEventPublisherAdapter implements EventPublisher {
 
     private final OutboxJpaRepository outboxRepository;
     private final ObjectMapper objectMapper;
+    private final PaymentBusinessMetrics metrics;
 
-    public OutboxEventPublisherAdapter(OutboxJpaRepository outboxRepository, ObjectMapper objectMapper) {
+    public OutboxEventPublisherAdapter(OutboxJpaRepository outboxRepository,
+                                       ObjectMapper objectMapper,
+                                       PaymentBusinessMetrics metrics) {
         this.outboxRepository = outboxRepository;
         this.objectMapper = objectMapper;
+        this.metrics = metrics;
     }
 
     @Override
@@ -53,6 +58,7 @@ public class OutboxEventPublisherAdapter implements EventPublisher {
             );
 
             outboxRepository.save(msg);
+            metrics.record(eventType);
         } catch (Exception e) {
             throw new RuntimeException("Failed to write outbox message for eventType=" + eventType, e);
         }

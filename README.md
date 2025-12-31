@@ -2,6 +2,9 @@
 
 ---
 
+## Observability (Local Dev)
+See `docs/observability-local.md`.
+
 ## Eventing Guidelines (Official)
 
 ### 1) Source of Truth (SoT)

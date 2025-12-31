@@ -1,5 +1,7 @@
 package com.mvbr.retailstore.payment.application.service;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.mvbr.retailstore.payment.application.command.SagaContext;
 import com.mvbr.retailstore.payment.application.port.out.EventPublisher;
 import com.mvbr.retailstore.payment.application.port.out.PaymentRepository;
@@ -17,6 +19,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -125,7 +128,52 @@ public class StripeWebhookService {
         if (stripeObject instanceof PaymentIntent paymentIntent) {
             return paymentIntent;
         }
+        if (event.getData() == null || event.getData().getObject() == null) {
+            return null;
+        }
+        Object rawObject = event.getData().getObject();
+        if (rawObject instanceof PaymentIntent paymentIntent) {
+            return paymentIntent;
+        }
+        if (rawObject instanceof JsonObject jsonObject) {
+            return paymentIntentFromJson(jsonObject);
+        }
+        if (rawObject instanceof Map<?, ?> map) {
+            return paymentIntentFromMap(map);
+        }
         return null;
+    }
+
+    private PaymentIntent paymentIntentFromJson(JsonObject jsonObject) {
+        JsonElement idElement = jsonObject.get("id");
+        if (idElement == null || idElement.isJsonNull()) {
+            return null;
+        }
+        String id = idElement.getAsString();
+        if (id == null || id.isBlank()) {
+            return null;
+        }
+        PaymentIntent intent = new PaymentIntent();
+        intent.setId(id);
+        JsonElement statusElement = jsonObject.get("status");
+        if (statusElement != null && !statusElement.isJsonNull()) {
+            intent.setStatus(statusElement.getAsString());
+        }
+        return intent;
+    }
+
+    private PaymentIntent paymentIntentFromMap(Map<?, ?> map) {
+        Object idValue = map.get("id");
+        if (!(idValue instanceof String id) || id.isBlank()) {
+            return null;
+        }
+        PaymentIntent intent = new PaymentIntent();
+        intent.setId(id);
+        Object statusValue = map.get("status");
+        if (statusValue instanceof String status && !status.isBlank()) {
+            intent.setStatus(status);
+        }
+        return intent;
     }
 
     private String extractDeclineReason(PaymentIntent intent) {

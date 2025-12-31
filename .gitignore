@@ -38,5 +38,9 @@ build/
 # IntelliJ
 .idea/
 
+# Observability logs
+logs/*
+!logs/.gitkeep
+
 # IntelliJ
 .idea/

@@ -1,5 +1,6 @@
 package com.mvbr.retailstore.inventory.config;
 
+import com.mvbr.retailstore.inventory.infrastructure.observability.KafkaRecordMdcInterceptor;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,6 +24,7 @@ public class KafkaConsumerConfig {
                 new ConcurrentKafkaListenerContainerFactory<>();
 
         factory.setConsumerFactory(consumerFactory);
+        factory.setRecordInterceptor(new KafkaRecordMdcInterceptor<>());
 
         // Manual ACK (ACK afterCommit no consumer)
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);

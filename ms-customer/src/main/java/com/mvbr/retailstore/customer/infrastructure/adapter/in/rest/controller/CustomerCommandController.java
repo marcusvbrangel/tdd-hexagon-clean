@@ -75,21 +75,21 @@ public class CustomerCommandController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    @PatchMapping("/{customerId}/activate")
+    @RequestMapping(value = "/{customerId}/activate", method = {RequestMethod.POST, RequestMethod.PATCH})
     public ResponseEntity<Void> activate(@PathVariable
                                          @NotBlank(message = "Customer id is required") String customerId) {
         activateCustomerUseCase.activate(new ActivateCustomerCommand(customerId));
         return ResponseEntity.noContent().build();
     }
 
-    @PatchMapping("/{customerId}/deactivate")
+    @RequestMapping(value = "/{customerId}/deactivate", method = {RequestMethod.POST, RequestMethod.PATCH})
     public ResponseEntity<Void> deactivate(@PathVariable
                                            @NotBlank(message = "Customer id is required") String customerId) {
         deactivateCustomerUseCase.deactivate(new DeactivateCustomerCommand(customerId));
         return ResponseEntity.noContent().build();
     }
 
-    @PatchMapping("/{customerId}/block")
+    @RequestMapping(value = "/{customerId}/block", method = {RequestMethod.POST, RequestMethod.PATCH})
     public ResponseEntity<Void> block(@PathVariable
                                       @NotBlank(message = "Customer id is required") String customerId) {
         blockCustomerUseCase.block(new BlockCustomerCommand(customerId));
