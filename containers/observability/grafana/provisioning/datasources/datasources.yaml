@@ -5,14 +5,14 @@ datasources:
     uid: prometheus
     type: prometheus
     access: proxy
-    url: http://host.docker.internal:9090
+    url: http://localhost:9090
     isDefault: true
 
   - name: Tempo
     uid: tempo
     type: tempo
     access: proxy
-    url: http://tempo:3200
+    url: http://localhost:3200
     jsonData:
       tracesToLogs:
         datasourceUid: loki
@@ -22,7 +22,7 @@ datasources:
     uid: loki
     type: loki
     access: proxy
-    url: http://loki:3100
+    url: http://localhost:3100
     jsonData:
       derivedFields:
         - name: TraceID

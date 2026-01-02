@@ -26,7 +26,7 @@
         "includeAll": true,
         "multi": true,
         "allValue": ".*",
-        "query": "label_values({service!=}, service)",
+        "query": "label_values({job=\"retail-store\"}, service)",
         "current": {
           "text": "All",
           "value": [
@@ -46,7 +46,7 @@
         "includeAll": true,
         "multi": true,
         "allValue": ".*",
-        "query": "label_values({service=~\"$service\"}, level)",
+        "query": "label_values({job=\"retail-store\", service=~\"$service\"}, level)",
         "current": {
           "text": "All",
           "value": [
@@ -67,7 +67,7 @@
       },
       "targets": [
         {
-          "expr": "{service=~\"$service\"} | json | level=~\"$level\"",
+          "expr": "{job=\"retail-store\", service=~\"$service\"} | json | level=~\"$level\"",
           "refId": "A"
         }
       ],
@@ -116,7 +116,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (service) (rate({service=~\"$service\", level=~\"ERROR|error\"}[5m]))",
+          "expr": "sum by (service) (rate({job=\"retail-store\", service=~\"$service\", level=~\"ERROR|error\"}[5m]))",
           "refId": "A"
         }
       ]
