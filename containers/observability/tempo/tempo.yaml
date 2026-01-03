@@ -8,6 +8,36 @@ distributor:
         grpc:
           endpoint: 0.0.0.0:4317
 
+memberlist:
+  join_members:
+    - tempo
+
+metrics_generator:
+  storage:
+    path: /var/tempo/generator/wal
+    remote_write:
+      - url: http://host.docker.internal:9090/api/v1/write
+  traces_storage:
+    path: /var/tempo/generator/traces
+  ring:
+    kvstore:
+      store: memberlist
+  processor:
+    service_graphs:
+      wait: 10s
+    span_metrics:
+      dimensions:
+        - service.name
+        - span.name
+        - span.kind
+        - status.code
+      histogram_buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+
+overrides:
+  metrics_generator_processors:
+    - service-graphs
+    - span-metrics
+
 storage:
   trace:
     backend: local

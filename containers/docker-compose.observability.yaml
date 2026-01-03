@@ -8,6 +8,8 @@ services:
     volumes:
       - ./observability/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
       - tempo_data:/var/tempo
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - retail-store
 

@@ -58,6 +58,31 @@
   },
   "panels": [
     {
+      "id": 4,
+      "type": "logs",
+      "title": "Quick logs (all services)",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "{job=\"retail-store\"} | json | level=~\"$level\"",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 6
+      },
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true
+      }
+    },
+    {
       "id": 1,
       "type": "logs",
       "title": "Service logs",
@@ -73,9 +98,9 @@
       ],
       "gridPos": {
         "x": 0,
-        "y": 0,
+        "y": 6,
         "w": 24,
-        "h": 16
+        "h": 10
       },
       "options": {
         "showTime": true,
@@ -83,11 +108,26 @@
       }
     },
     {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Log volume (events/sec)",
       "datasource": {
         "type": "loki",
         "uid": "loki"
       },
-      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (service) (rate({job=\"retail-store\", service=~\"$service\"}[5m]))",
+          "refId": "A",
+          "legendFormat": "{{service}}"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "ops"
@@ -105,21 +145,47 @@
         "stacking": {
           "mode": "none"
         }
-      },
-      "id": 2,
-      "title": "Error logs rate",
-      "gridPos": {
-        "x": 0,
-        "y": 16,
-        "w": 24,
-        "h": 8
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Error logs (events/sec)",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
       },
       "targets": [
         {
           "expr": "sum by (service) (rate({job=\"retail-store\", service=~\"$service\", level=~\"ERROR|error\"}[5m]))",
-          "refId": "A"
+          "refId": "A",
+          "legendFormat": "{{service}}"
         }
-      ]
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        },
+        "stacking": {
+          "mode": "none"
+        }
+      }
     }
   ]
 }
