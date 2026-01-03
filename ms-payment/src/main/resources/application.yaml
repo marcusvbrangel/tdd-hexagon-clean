@@ -90,6 +90,12 @@ outbox:
 # =============================================================================================
 # STRIPE SETTINGS
 # =============================================================================================
+stripe:
+  apiKey: ${STRIPE_API_KEY:}
+  webhookSecret: ${STRIPE_WEBHOOK_SECRET:}
+  connectAccount: ${STRIPE_CONNECT_ACCOUNT:}
+  defaultPaymentMethodId: ${STRIPE_DEFAULT_PAYMENT_METHOD_ID:pm_card_visa}
+  captureMethod: ${STRIPE_CAPTURE_METHOD:manual}
 
 
 management:
