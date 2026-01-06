@@ -1,0 +1,2 @@
+ALTER TABLE sent_notifications
+    ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0;
