@@ -1,6 +1,36 @@
 
 services:
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.5.0
+    container_name: keycloak
+    command: start-dev --import-realm
+    environment:
+      # Admin
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+
+      # DB
+      KC_DB: postgres
+      KC_DB_URL_HOST: postgres
+      KC_DB_URL_DATABASE: keycloak_db
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: postgres
+
+      # HTTP/Host (dev)
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+
+    ports:
+      - "9098:8080"
+    depends_on:
+      - postgres
+    volumes:
+      - ./keycloak/realms:/opt/keycloak/data/import
+    networks: [retail-store]
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: zookeeper
@@ -59,6 +89,15 @@ services:
     networks:
       - retail-store
 
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - retail-store
+
   postgres:
     image: postgres:16.3-alpine
     container_name: postgres
@@ -95,4 +134,3 @@ services:
 networks:
   retail-store:
     driver: bridge
-
