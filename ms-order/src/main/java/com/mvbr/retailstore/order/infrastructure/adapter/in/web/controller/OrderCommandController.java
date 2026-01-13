@@ -8,12 +8,13 @@ import com.mvbr.retailstore.order.infrastructure.adapter.in.web.dto.OrderCreated
 import com.mvbr.retailstore.order.infrastructure.adapter.in.web.mapper.OrderWebMapper;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 
 @RestController
-@RequestMapping("/orders")
+@RequestMapping("/api/v1/orders")
 public class OrderCommandController {
 
     private final PlaceOrderUseCase placeOrderUseCase;
@@ -31,9 +32,9 @@ public class OrderCommandController {
         this.mapper = mapper;
     }
 
-
     @PostMapping
-    public ResponseEntity<?> place(@Valid @RequestBody CreateOrderRequest request) {
+    public ResponseEntity<?> place(@Valid @RequestBody CreateOrderRequest request, @AuthenticationPrincipal String principal) {
+
         var orderId = placeOrderUseCase.execute(mapper.toPlaceOrderCommand(request));
         return ResponseEntity
                 .created(URI.create("/orders/" + orderId.value()))
