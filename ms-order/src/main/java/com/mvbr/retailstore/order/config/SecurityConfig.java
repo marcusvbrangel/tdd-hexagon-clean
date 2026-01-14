@@ -17,6 +17,9 @@ import java.util.stream.Collectors;
 @Configuration
 public class SecurityConfig {
 
+    // Client que contém as roles do ms-order no Keycloak (resource_access.{client}.roles)
+    private static final String ORDER_CLIENT_ID = "ms-order-api";
+
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -24,28 +27,26 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
 
                         // -------------------------
-                        // PUBLIC (sem token)
+                        // PUBLIC (sem token) - se não existir nada público, remova esta seção
                         // -------------------------
-                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/public/**").permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
 
                         // -------------------------
                         // ORDERS (ms-order)
                         // -------------------------
                         // Criar pedido
-                        //.requestMatchers(HttpMethod.POST, "/api/v1/orders").hasAnyRole("CUSTOMER")
-                        .requestMatchers(HttpMethod.POST, "/api/v1/orders").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/orders/**").hasRole("ORDER_CREATE")
 
-                        // Ler pedidos (exemplos - ajuste conforme seu design)
-                        .requestMatchers(HttpMethod.GET, "/api/v1/orders").hasAnyRole("CUSTOMER", "ADMIN")
+                        // Listar/consultar pedidos
+                        .requestMatchers(HttpMethod.GET,  "/api/v1/orders/**").hasRole("ORDER_LIST")
 
-                        // Cancelar pedido (exemplo)
-                        .requestMatchers(HttpMethod.POST, "/api/v1/orders/*/cancel").hasAnyRole("CUSTOMER")
+                        // Cancelar pedido (use a role certa; aqui mantive ORDER_CREATE por falta de ORDER_CANCEL)
+                        //.requestMatchers(HttpMethod.POST, "/api/v1/orders/*/cancel").hasRole("ORDER_CREATE")
 
                         // -------------------------
-                        // ADMIN
+                        // ADMIN (ms-order)
                         // -------------------------
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/admin/**").hasRole("ORDER_ADMIN")
 
                         // -------------------------
                         // DEFAULT (seguro)
@@ -59,11 +60,18 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * Converte roles do Keycloak em authorities do Spring.
+     *
+     * - Filtra apenas roles do client "ms-order-api" (resource_access.ms-order-api.roles)
+     * - Mantém realm roles (opcional) se você quiser usar em algum lugar
+     * - Converte para "ROLE_<ROLE>" em uppercase para bater com hasRole("...").
+     */
     private Converter<Jwt, JwtAuthenticationToken> keycloakJwtAuthConverter() {
         return jwt -> {
             Set<String> roles = new HashSet<>();
 
-            // realm_access.roles
+            // 1) realm_access.roles (opcional)
             Map<String, Object> realmAccess = jwt.getClaim("realm_access");
             if (realmAccess != null) {
                 Object rolesObj = realmAccess.get("roles");
@@ -72,30 +80,30 @@ public class SecurityConfig {
                 }
             }
 
-            // (opcional) client roles: resource_access.{client}.roles
+            // 2) client roles: resource_access.ms-order-api.roles (recomendado)
             Map<String, Object> resourceAccess = jwt.getClaim("resource_access");
             if (resourceAccess != null) {
-                for (Object clientObj : resourceAccess.values()) {
-                    if (clientObj instanceof Map<?, ?> clientMap) {
-                        Object clientRolesObj = clientMap.get("roles");
-                        if (clientRolesObj instanceof Collection<?> cr) {
-                            cr.forEach(r -> roles.add(String.valueOf(r)));
-                        }
+                Object clientObj = resourceAccess.get(ORDER_CLIENT_ID);
+                if (clientObj instanceof Map<?, ?> clientMap) {
+                    Object clientRolesObj = clientMap.get("roles");
+                    if (clientRolesObj instanceof Collection<?> cr) {
+                        cr.forEach(r -> roles.add(String.valueOf(r)));
                     }
                 }
             }
 
             Set<GrantedAuthority> authorities = roles.stream()
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(s -> !s.isBlank())
                     .map(r -> "ROLE_" + r.toUpperCase(Locale.ROOT))
                     .map(SimpleGrantedAuthority::new)
                     .collect(Collectors.toUnmodifiableSet());
 
-            String principal = Optional.ofNullable(jwt.getClaimAsString("preferred_username"))
-                    .orElse(jwt.getSubject());
+            // Principal estável: sub (UUID do usuário no Keycloak)
+            String principal = jwt.getSubject();
 
             return new JwtAuthenticationToken(jwt, authorities, principal);
         };
-
     }
-
 }

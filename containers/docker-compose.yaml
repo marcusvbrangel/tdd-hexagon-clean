@@ -28,7 +28,10 @@ services:
     depends_on:
       - postgres
     volumes:
-      - ./keycloak/realms:/opt/keycloak/data/import
+      # coloque seus realm exports aqui dentro
+      - ./containers/keycloak/realm/import:/opt/keycloak/data/import
+      # opcional: persistir dados do keycloak (principalmente se você NÃO quer perder config)
+      - ./containers/keycloak/data:/opt/keycloak/data
     networks: [retail-store]
 
   zookeeper:
